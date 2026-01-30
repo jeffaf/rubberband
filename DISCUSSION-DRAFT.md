@@ -1,8 +1,8 @@
-# RFC: Behavioral Detection for Exec Commands
+# RFC: Command Pattern Detection for Exec Commands
 
 ## TL;DR
 
-I built a lightweight behavioral detection layer for the exec pipeline that catches dangerous command patterns (credential access, exfiltration, reverse shells) — as a defense against prompt injection reaching exec. Looking for feedback before submitting a PR.
+I built a lightweight command pattern detection layer for the exec pipeline that catches dangerous command patterns (credential access, exfiltration, reverse shells) — as a defense against prompt injection reaching exec. Looking for feedback before submitting a PR.
 
 **Fork with implementation:** [jeffaf/openclaw](https://github.com/jeffaf/openclaw) (branch: `feat/rubberband-integration`)
 
@@ -19,7 +19,7 @@ Current defenses focus on:
 - **Input sanitization** — Wrap user messages, escape shell chars (#4542)
 - **External frameworks** — Sentinel, prompt-guard (#3345, #4278)
 
-These are valuable, but there's a gap: **What if injection bypasses input detection and reaches exec?**
+These are valuable, but there's a gap: **What if injection bypasses input validation and reaches exec?**
 
 ## The Solution: RubberBand
 
@@ -35,7 +35,7 @@ Agent exec(command)
        │
        ▼
 ┌──────────────────────────────┐
-│  RubberBand behavioral check │  ← NEW
+│  RubberBand pattern check │  ← NEW
 │  • Normalize (Unicode, URLs) │
 │  • Pattern match             │
 │  • Context-aware scoring     │
@@ -113,7 +113,7 @@ For context: a typical exec already takes 10-50ms for process spawning. The dete
 | #4542 (Input isolation) | Sanitize input, escape shell | Catches behavior if injection bypasses sanitization |
 | #4570 (Security Shield) | Rate limiting, firewall, IP blocking | Different layer (network vs exec pipeline) |
 | Sentinel framework | External 4-layer validation | Native, zero-dependency, exec-focused |
-| Allowlist | Pattern-based command approval | Analyzes behavioral intent, not just syntax |
+| Allowlist | Pattern-based command approval | Analyzes command intent, not just syntax |
 
 This is **defense-in-depth for prompt injection** — if an injection bypasses input detection and reaches exec, this layer catches the dangerous behavior before it runs.
 
