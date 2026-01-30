@@ -2,7 +2,7 @@
 ## Behavioral Detection for Prompt Injection Defense
 
 **Version:** 1.0  
-**Author:** Mai (Clawdbot)  
+**Author:** Mai (OpenClaw)  
 **Date:** 2025-07-01  
 **Status:** Draft
 
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-RubberBand is a behavioral detection layer for Clawdbot that catches prompt injection attacks by monitoring what the agent *does* rather than what it's *told*. The core insight: you can't reliably detect malicious input, but you can detect malicious behavior.
+RubberBand is a behavioral detection layer for OpenClaw that catches prompt injection attacks by monitoring what the agent *does* rather than what it's *told*. The core insight: you can't reliably detect malicious input, but you can detect malicious behavior.
 
 **Philosophy:** Don't catch the injection — catch what it tries to DO.
 
@@ -19,7 +19,7 @@ RubberBand is a behavioral detection layer for Clawdbot that catches prompt inje
 ## 1. Problem Statement
 
 ### The Prompt Injection Problem
-- Clawdbot processes untrusted input: emails, web pages, documents, user messages
+- OpenClaw processes untrusted input: emails, web pages, documents, user messages
 - Prompt injection attacks hide malicious instructions in this content
 - Input-based detection fails because:
   - Infinite encoding variations (unicode, base64, leetspeak, etc.)
@@ -90,7 +90,7 @@ RubberBand operates as a **middleware layer** between Claude's tool calls and ac
 
 ### 3.2 Integration Point
 
-Hook into Clawdbot's tool dispatcher (likely in the function call handler):
+Hook into OpenClaw's tool dispatcher (likely in the function call handler):
 
 ```typescript
 // Pseudocode - actual integration TBD
@@ -232,7 +232,7 @@ persistence_paths:
 
 ```yaml
 allowed_destinations:
-  # Clawdbot infrastructure
+  # OpenClaw infrastructure
   - "*.anthropic.com"
   - "api.openai.com"
   - "*.googleapis.com"
@@ -265,7 +265,7 @@ allowed_destinations:
 ### 5.2 Mode Configuration
 
 ```yaml
-# ~/.config/clawdbot/rubberband.yml
+# ~/.config/openclaw/rubberband.yml
 mode: alert  # monitor | alert | paranoid
 
 # Per-pattern overrides
@@ -346,7 +346,7 @@ Total:                ~65KB + O(1) per session
 - [ ] Create `rubberband/` module structure
 - [ ] Implement path matcher (credential paths)
 - [ ] Hook into tool dispatcher (read/exec initially)
-- [ ] Basic logging (JSON to `~/.clawdbot/rubberband.log`)
+- [ ] Basic logging (JSON to `~/.openclaw/rubberband.log`)
 - [ ] Monitor mode only
 
 **Deliverable:** Logs all access to sensitive paths
@@ -404,7 +404,7 @@ Total:                ~65KB + O(1) per session
 ## 8. File Structure
 
 ```
-clawdbot/
+openclaw/
 ├── src/
 │   └── rubberband/
 │       ├── index.ts           # Main entry, middleware hook

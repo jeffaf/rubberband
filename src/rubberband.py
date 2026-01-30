@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RubberBand - Behavioral Detection for Clawdbot
+RubberBand - Behavioral Detection for OpenClaw
 Lightweight prompt injection detection via command monitoring
 
 The beast is alive and useful, but we've banded the dangerous parts.
@@ -17,8 +17,8 @@ from datetime import datetime
 # ============ CONFIGURATION ============
 
 CONFIG = {
-    "log_file": Path.home() / ".clawdbot/rubberband.log",
-    "allowlist_file": Path.home() / ".clawdbot/rubberband-allowlist.yaml",
+    "log_file": Path.home() / ".openclaw/rubberband.log",
+    "allowlist_file": Path.home() / ".openclaw/rubberband-allowlist.yaml",
     "alert_threshold": 50,  # Risk score to trigger alert
     "block_threshold": 80,  # Risk score to block
     "session_exemption_ttl": 300,  # 5 minutes
@@ -288,7 +288,7 @@ def get_rubberband():
 def check_action(action: str, action_type: str = "exec", 
                  context: dict = None) -> dict:
     """
-    Hook this into Clawdbot's action execution pipeline.
+    Hook this into OpenClaw's action execution pipeline.
     
     Returns:
         dict with 'disposition' (ALLOW|LOG|ALERT|BLOCK) and details

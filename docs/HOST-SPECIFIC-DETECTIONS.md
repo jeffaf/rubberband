@@ -1,6 +1,6 @@
 # Host-Specific Detections
 
-RubberBand should enable each Clawdbot instance to create and maintain detections tailored to their specific host environment.
+RubberBand should enable each OpenClaw instance to create and maintain detections tailored to their specific host environment.
 
 ## The Vision
 
@@ -28,7 +28,7 @@ A one-size-fits-all ruleset will either:
                           ▲
 ┌─────────────────────────────────────────────────────────┐
 │  Layer 2: User-Defined (local config)                   │
-│  • ~/.clawdbot/rubberband-local.yaml                    │
+│  • ~/.openclaw/rubberband-local.yaml                    │
 │  • Custom paths, allowlists, thresholds                 │
 │  • Overrides base patterns                              │
 └─────────────────────────────────────────────────────────┘
@@ -44,7 +44,7 @@ A one-size-fits-all ruleset will either:
 ## User-Defined Patterns
 
 ```yaml
-# ~/.clawdbot/rubberband-local.yaml
+# ~/.openclaw/rubberband-local.yaml
 
 # Add host-specific sensitive paths
 sensitive_paths:
@@ -79,7 +79,7 @@ score_adjustments:
 
 ## AI-Assisted Pattern Creation
 
-Mai (or any Clawdbot) can help create patterns:
+Mai (or any OpenClaw) can help create patterns:
 
 ### 1. Host Profiling
 ```

@@ -58,7 +58,7 @@
 
 ## Vision Addition (from Jeff)
 
-**Host-Specific Detections:** Each Clawdbot instance (like Mai) should be able to create detections tailored for their specific host environment. This means:
+**Host-Specific Detections:** Each OpenClaw instance (like Mai) should be able to create detections tailored for their specific host environment. This means:
 - User-defined patterns in local config
 - AI-assisted pattern creation
 - Learning from host-specific behaviors
