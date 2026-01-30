@@ -143,6 +143,81 @@ PATTERNS = {
         "score": 25,
         "category": "staging",
     },
+    # === NEW: Post-injection behavioral patterns ===
+    "config_tampering": {
+        "patterns": [
+            r'>\s*.*clawdbot\.json',
+            r'>\s*.*openclaw\.json',
+            r'>\s*.*\.clawdbot/',
+            r'>\s*.*\.openclaw/',
+            r'(echo|cat|printf).*>\s*.*SOUL\.md',
+            r'(echo|cat|printf).*>\s*.*AGENTS\.md',
+        ],
+        "score": 75,
+        "category": "config_tampering",
+    },
+    "memory_poisoning": {
+        "patterns": [
+            r'(echo|cat|printf).*>\s*.*memory/.*\.md',
+            r'(echo|cat|printf).*>>\s*.*MEMORY\.md',
+            r'>\s*.*\.clawdbot/sessions',
+            r'>\s*.*\.openclaw/sessions',
+        ],
+        "score": 55,
+        "category": "context_manipulation",
+    },
+    "reverse_shell": {
+        "patterns": [
+            r'nc\s+.*-[elp]',                    # netcat listener
+            r'bash\s+-i\s+>&\s*/dev/tcp',        # bash reverse shell
+            r'ngrok\s+(http|tcp)',               # ngrok tunnels
+            r'mkfifo.*nc\s+',                    # named pipe + nc
+            r'/dev/tcp/\d+\.\d+',                # /dev/tcp connections
+            r'socat\s+.*exec',                   # socat shells
+            r'python.*socket.*connect',          # python reverse shell
+        ],
+        "score": 90,
+        "category": "persistence",
+    },
+    "reconnaissance": {
+        "patterns": [
+            r'\bwhoami\b',
+            r'\bid\s*$',
+            r'uname\s+-a',
+            r'cat\s+/etc/passwd',
+            r'ps\s+(aux|ef)',
+            r'netstat\s+-[tulpan]',
+            r'\b(ifconfig|ip\s+addr)\b',
+            r'\benv\s*$',
+            r'\bprintenv\b',
+            r'cat\s+/etc/hosts',
+            r'hostname\s+-[fIA]',
+        ],
+        "score": 30,
+        "category": "recon",
+    },
+    "data_staging": {
+        "patterns": [
+            r'>\s*/tmp/.*\.(txt|log|key|pem|json)',
+            r'cp\s+.*\.(pem|key|env|json)\s+/tmp',
+            r'mv\s+.*\.(pem|key|env)\s+/tmp',
+            r'>\s*.*/public/',
+            r'>\s*.*/www/',
+            r'>\s*.*/var/www/',
+        ],
+        "score": 45,
+        "category": "staging",
+    },
+    "skill_tampering": {
+        "patterns": [
+            r'(echo|cat|printf).*>\s*.*SKILL\.md',
+            r'>\s*.*skills/.*\.md',
+            r'(echo|cat|printf).*system.*prompt',
+            r'>\s*.*\.claude/',
+        ],
+        "score": 75,
+        "category": "self_modification",
+    },
 }
 
 # ============ DATA STRUCTURES ============
