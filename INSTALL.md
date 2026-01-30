@@ -1,164 +1,66 @@
 # Installing RubberBand
 
-RubberBand adds behavioral detection to OpenClaw/Clawdbot. It monitors command execution for suspicious patterns (credential theft, exfiltration, persistence) and can alert or block before damage is done.
+RubberBand adds behavioral detection to OpenClaw. It monitors command execution for suspicious patterns (credential theft, exfiltration, persistence) and can alert or block before damage is done.
 
-> **For AI Assistants:** This guide helps you install RubberBand for your operator. Follow the steps and report any errors.
+## For OpenClaw Users
 
-## Prerequisites
+RubberBand is being integrated directly into OpenClaw as a pre-exec security hook.
 
-- Python 3.8+
-- OpenClaw or Clawdbot installed and running
-- Write access to the workspace directory
+**Status:** PR available at [feat/rubberband-integration](https://github.com/jeffaf/openclaw/tree/feat/rubberband-integration)
 
-## Quick Install
+Once merged, RubberBand will be a built-in security feature — no separate installation needed.
 
-### Option 1: Copy to Workspace (Recommended for now)
+## For Standalone Testing
 
 ```bash
-# Clone or download RubberBand
-git clone https://github.com/jeffaf/rubberband.git /tmp/rubberband
+# Clone RubberBand
+git clone https://github.com/jeffaf/rubberband.git
+cd rubberband
 
-# Copy the core module to your workspace
-cp /tmp/rubberband/src/rubberband.py ~/clawd/scripts/rubberband.py
-
-# Create config directory
-mkdir -p ~/.openclaw
+# Run the test suite
+python3 src/rubberband.py
 ```
 
-### Option 2: pip install (when published)
-
-```bash
-pip install rubberband-openclaw
-```
-
-## Configuration
-
-Create `~/.openclaw/rubberband.yaml`:
-
-```yaml
-# Mode: monitor (log only) | alert (notify user) | paranoid (block aggressively)
-mode: alert
-
-# Risk thresholds (0-100)
-thresholds:
-  alert: 50    # Score >= 50 triggers alert
-  block: 80    # Score >= 80 blocks action
-
-# Trusted destinations (won't trigger exfil detection)
-allowed_destinations:
-  - localhost
-  - 127.0.0.1
-  - api.github.com
-  - api.anthropic.com
-  - "*.tailscale.net"
-
-# Commands that are always allowed
-allowed_commands:
-  - "aws configure list"
-  - "ssh-add -l"
-  - "gh auth status"
-```
+Expected output shows test commands with dispositions:
+- 🟢 ALLOW — safe command
+- 🟡 ALERT/LOG — suspicious but allowed
+- 🔴 BLOCK — dangerous, rejected
 
 ## What It Detects
 
-| Category | Examples | Default Score |
-|----------|----------|---------------|
-| **Credential Access** | `cat ~/.ssh/id_rsa`, keychain queries | 70-80 |
-| **Secret Exposure** | API keys in output (OpenAI, Anthropic, GitHub) | 60 |
-| **Exfiltration** | `curl -X POST` with data to external hosts | 40+ |
-| **Obfuscation** | Base64 encoding sensitive files | 30 |
-| **Persistence** | Crontab writes, shell rc modifications | 60 |
+| Category | Examples | Score |
+|----------|----------|-------|
+| **Credential Access** | `cat ~/.ssh/id_rsa`, AWS creds, keychains | 60-80 |
+| **Data Exfiltration** | `curl POST` to external hosts | 40-70 |
+| **Reverse Shells** | `nc -e`, `bash /dev/tcp`, ngrok | 90 |
+| **Config Tampering** | Writes to SOUL.md, clawdbot.json | 75 |
+| **Persistence** | Crontab, LaunchAgents, shell rc mods | 60 |
+| **Reconnaissance** | `whoami`, `env`, `ps aux` | 30 |
 
-Scores stack based on context (e.g., encoding + credential access + external destination = higher risk).
+## Thresholds
 
-## Testing
+| Score | Disposition | Behavior |
+|-------|-------------|----------|
+| 0 | ALLOW | No detection |
+| 1-49 | LOG | Log for review |
+| 50-79 | ALERT | Warn user |
+| 80+ | BLOCK | Reject command |
 
-Run the test suite to verify detection works:
+## Logs
 
-```bash
-python3 ~/clawd/scripts/rubberband.py
-```
-
-Expected output shows test commands with risk scores and dispositions (🟢 ALLOW, 🟡 ALERT, 🔴 BLOCK).
-
-## Integration with OpenClaw/Clawdbot
-
-> ⚠️ **Note:** Native integration hooks are in development. For now, RubberBand runs as a monitoring layer.
-
-### Manual Integration (Python)
-
-```python
-from rubberband import check_action
-
-# Before executing a command
-result = check_action(command, action_type="exec", context={"user_initiated": True})
-
-if result["disposition"] == "BLOCK":
-    # Ask user for confirmation or deny
-    pass
-elif result["disposition"] == "ALERT":
-    # Log and notify, but allow
-    pass
-```
-
-### Clawdbot Skill (Coming Soon)
-
-A Clawdbot skill will provide:
-- Automatic exec pipeline integration
-- `/rubberband status` command
-- Real-time alerts via configured channels
-- Allowlist management through chat
-
-## Log Location
-
-Alerts are written to `~/.openclaw/rubberband.log` as JSON lines:
+When integrated, alerts are written to `~/.openclaw/rubberband.log` as JSON:
 
 ```bash
-# View recent alerts
 tail -20 ~/.openclaw/rubberband.log | jq .
-
-# Search for specific rule
-grep "credential_access" ~/.openclaw/rubberband.log
 ```
 
-## Troubleshooting
+## Documentation
 
-### False Positives
-
-If legitimate commands are being flagged:
-
-1. Check the log to see which rule triggered
-2. Add to `allowed_commands` in config if it's a known-good command
-3. Add trusted hosts to `allowed_destinations`
-4. Use `user_initiated: true` in context for user-requested actions
-
-### No Alerts Appearing
-
-1. Verify the module is loaded: `python3 -c "from rubberband import check_action; print('OK')"`
-2. Check log file permissions: `ls -la ~/.openclaw/rubberband.log`
-3. Run test suite to confirm detection works
-
-## Updating
-
-```bash
-# If installed via git
-cd /path/to/rubberband && git pull
-
-# If installed via pip
-pip install --upgrade rubberband-openclaw
-```
-
-## Security Considerations
-
-- RubberBand runs in the same process as your AI assistant
-- Logs may contain truncated command snippets (sensitive data is limited to 500 chars)
-- The allowlist should be operator-controlled, not AI-writable in production
+- [OPENCLAW-INTEGRATION.md](docs/OPENCLAW-INTEGRATION.md) — Integration architecture
+- [SECURITY-ENGINEERING.md](docs/SECURITY-ENGINEERING.md) — Detection patterns and evasion mitigations
+- [PRD.md](docs/PRD.md) — Product requirements and roadmap
 
 ## Support
 
 - **Issues:** https://github.com/jeffaf/rubberband/issues
-- **Discussions:** OpenClaw Discord
-
----
-
-*RubberBand — the beast is alive, but we've banded the dangerous parts* 🦞🔵
+- **OpenClaw Discord:** https://discord.gg/clawd
