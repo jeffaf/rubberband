@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/rubberband-logo.png" alt="RubberBand Logo" width="256">
+</p>
+
 # RubberBand 🦞🔵
 
 Behavioral detection for OpenClaw. Detects prompt injection by monitoring what commands *try to do*, not by analyzing input.
