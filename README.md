@@ -154,3 +154,5 @@ MIT
 Created by [@_jeffaf](https://twitter.com/_jeffaf) with help from Mai 🐱
 
 Part of the [Clawdbot](https://github.com/clawdbot/clawdbot) ecosystem.
+
+**Repo:** https://github.com/jeffaf/rubberband
