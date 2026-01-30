@@ -1,4 +1,4 @@
-# PR: [AI-Assisted] Add RubberBand behavioral detection for exec commands
+# PR: [AI-Assisted] Add RubberBand static command pattern detection for exec commands
 
 > 🤖 **AI Disclosure**: This PR was developed with Claude (Opus). Testing level: **fully tested** (unit tests pass, live validation on fork completed). I understand what the code does and can answer questions about the implementation.
 >
@@ -9,7 +9,7 @@
 
 ## Summary
 
-This PR adds **RubberBand**, a behavioral detection layer that analyzes exec commands for potentially malicious patterns before execution. Unlike input-based prompt injection detection, RubberBand focuses on what commands *try to do* — catching credential access, data exfiltration, reverse shells, and other post-injection behaviors.
+This PR adds **RubberBand**, a static pattern detection layer that analyzes exec commands for potentially malicious patterns before execution. Unlike input-based prompt injection detection, RubberBand focuses on what commands *try to do* — catching credential access, data exfiltration, reverse shells, and other dangerous command patterns.
 
 ## Motivation
 
@@ -39,7 +39,7 @@ Agent exec(command)
        │
        ▼
 ┌──────────────────────────────┐
-│  RubberBand behavioral check │  ← NEW
+│  RubberBand pattern check    │  ← NEW
 │  • Normalize (Unicode, URLs) │
 │  • Pattern match             │
 │  • Risk score (0-100)        │
@@ -158,7 +158,7 @@ None. RubberBand defaults to `alert` mode, which logs warnings but doesn't block
 Per contributor guidelines, new features/architecture should start with a GitHub Discussion or Discord ask. Options:
 
 **Option A: GitHub Discussion**
-Title: "RFC: Behavioral detection for exec commands (RubberBand)"
+Title: "RFC: Static command pattern detection for exec commands (RubberBand)"
 Post the motivation + architecture, get feedback before PR.
 
 **Option B: Discord #setup-help**

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RubberBand - Behavioral Detection for OpenClaw
+RubberBand - Static Command Pattern Detection for OpenClaw
 Lightweight prompt injection detection via command monitoring
 
 The beast is alive and useful, but we've banded the dangerous parts.
@@ -143,7 +143,7 @@ PATTERNS = {
         "score": 25,
         "category": "staging",
     },
-    # === NEW: Post-injection behavioral patterns ===
+    # === Post-injection command patterns ===
     "config_tampering": {
         "patterns": [
             r'>\s*.*clawdbot\.json',
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="RubberBand - Behavioral detection for prompt injection 🦞🔵"
+        description="RubberBand - Static command pattern detection for prompt injection defense 🦞🔵"
     )
     parser.add_argument("--check", "-c", type=str, help="Check a single command")
     parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")

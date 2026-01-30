@@ -1,6 +1,6 @@
 # Installing RubberBand
 
-RubberBand adds behavioral detection to OpenClaw. It monitors command execution for suspicious patterns (credential theft, exfiltration, persistence) and can alert or block before damage is done.
+RubberBand adds static command pattern detection to OpenClaw. It monitors command execution for suspicious patterns (credential theft, exfiltration, persistence) and can alert or block before damage is done.
 
 ## For OpenClaw Users
 

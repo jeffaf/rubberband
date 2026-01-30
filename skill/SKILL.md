@@ -1,12 +1,12 @@
 ---
 name: rubberband
 version: 1.0.0
-description: Behavioral detection for prompt injection. Analyzes exec commands for dangerous patterns like credential access, exfiltration, and reverse shells. Use `rubberband check "command"` to test detection.
+description: Static command pattern detection for prompt injection defense. Analyzes exec commands for dangerous patterns like credential access, exfiltration, and reverse shells. Use `rubberband check "command"` to test detection.
 ---
 
 # RubberBand Security Skill 🦞🔵
 
-Behavioral detection for dangerous command patterns.
+Static pattern detection for dangerous commands.
 
 ## Usage
 

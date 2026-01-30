@@ -1,5 +1,5 @@
 # RubberBand PRD
-## Behavioral Detection for Prompt Injection Defense
+## Static Command Pattern Detection for Prompt Injection Defense
 
 **Version:** 1.0  
 **Author:** Mai (OpenClaw)  
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-RubberBand is a behavioral detection layer for OpenClaw that catches prompt injection attacks by monitoring what the agent *does* rather than what it's *told*. The core insight: you can't reliably detect malicious input, but you can detect malicious behavior.
+RubberBand is a static pattern detection layer for OpenClaw that catches prompt injection attacks by monitoring what the agent *does* rather than what it's *told*. The core insight: you can't reliably detect malicious input, but you can detect dangerous command patterns.
 
 **Philosophy:** Don't catch the injection — catch what it tries to DO.
 

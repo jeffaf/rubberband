@@ -42,7 +42,7 @@ Agent calls exec(command)
        ▼
 ┌──────────────────────────────┐
 │  🎯 HOOK POINT FOR RUBBERBAND│  ← INSERT HERE
-│  Behavioral analysis         │
+│  Pattern analysis            │
 └──────────────────────────────┘
        │
        ▼
@@ -86,7 +86,7 @@ Agent calls exec(command)
 // After: if (hostSecurity === "allowlist" && (!analysisOk || !allowlistSatisfied)) { throw... }
 // Before: const effectiveTimeout = ...
 
-// === RUBBERBAND BEHAVIORAL CHECK ===
+// === RUBBERBAND PATTERN CHECK ===
 const rbResult = await analyzeWithRubberBand(params.command, {
   cwd: workdir,
   context: { agentId, sessionKey: defaults?.sessionKey }
@@ -94,14 +94,14 @@ const rbResult = await analyzeWithRubberBand(params.command, {
 
 if (rbResult.disposition === "BLOCK") {
   throw new Error(
-    `exec blocked by behavioral analysis: ${rbResult.matches.map(m => m.rule_id).join(", ")}\n` +
+    `exec blocked by pattern analysis: ${rbResult.matches.map(m => m.rule_id).join(", ")}\n` +
     `Score: ${rbResult.score}/100`
   );
 }
 
 if (rbResult.disposition === "ALERT") {
   warnings.push(
-    `⚠️ Behavioral warning (score ${rbResult.score}): ` +
+    `⚠️ Pattern warning (score ${rbResult.score}): ` +
     rbResult.matches.map(m => m.rule_id).join(", ")
   );
   // Optionally: force approval flow for alerts
@@ -111,7 +111,7 @@ if (rbResult.disposition === "ALERT") {
 
 ### Option B: Extend exec-approvals.ts
 
-Add RubberBand as part of the allowlist evaluation. Keeps security checks together but mixes static (allowlist) and behavioral (rubberband) logic.
+Add RubberBand as part of the allowlist evaluation. Keeps security checks together with both allowlist and pattern-based logic.
 
 ### Option C: Generic Hook System
 
