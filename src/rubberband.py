@@ -9,6 +9,7 @@ The beast is alive and useful, but we've banded the dangerous parts.
 import re
 import json
 import time
+import unicodedata
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Optional, List
@@ -27,28 +28,54 @@ CONFIG = {
 
 # ============ DETECTION PATTERNS ============
 
+# Common file reader commands (not just cat!)
+FILE_READERS = r'(cat|head|tail|less|more|vim|sed|awk|grep|tac|dd|xxd|strings|od|python3?|ruby|perl|php|node)'
+
 PATTERNS = {
     "ssh_key_access": {
         "patterns": [
-            r'cat\s+.*\.ssh/(id_rsa|id_ed25519|id_ecdsa)',
-            r'-----BEGIN\s+(RSA|OPENSSH|EC)\s+PRIVATE\s+KEY-----',
+            # Any file reader accessing SSH keys
+            FILE_READERS + r'\s+.*\.ssh/(id_rsa|id_ed25519|id_ecdsa|.*\.pem)',
+            # Just the path (catches variable usage, redirects, etc.)
+            r'\.ssh/(id_rsa|id_ed25519|id_ecdsa)',
+            # Key content
+            r'-----BEGIN\s+(RSA|OPENSSH|EC|PRIVATE)\s+.*KEY-----',
         ],
         "score": 70,
         "category": "credential_access",
     },
     "aws_credentials": {
         "patterns": [
-            r'cat\s+.*\.aws/credentials',
+            FILE_READERS + r'\s+.*\.aws/credentials',
+            r'\.aws/credentials',
             r'AKIA[0-9A-Z]{16}',
         ],
         "score": 70,
         "category": "credential_access",
     },
+    "misc_credentials": {
+        "patterns": [
+            # Kubernetes, Docker, databases, package managers
+            r'\.(kube/config|docker/config\.json|netrc|pgpass|my\.cnf|npmrc|pypirc)',
+            r'_credentials',
+            r'\.config/gh/hosts',
+            # Generic credential file patterns
+            FILE_READERS + r'\s+.*\.(pem|key|p12|pfx|jks)',
+        ],
+        "score": 60,
+        "category": "credential_access",
+    },
     "api_key_leak": {
         "patterns": [
-            r'sk-[A-Za-z0-9]{48}',           # OpenAI
-            r'sk-ant-[A-Za-z0-9\-]{90,}',    # Anthropic
-            r'ghp_[A-Za-z0-9]{36}',          # GitHub
+            r'sk-[A-Za-z0-9]{48}',              # OpenAI
+            r'sk-ant-[A-Za-z0-9\-]{90,}',       # Anthropic
+            r'ghp_[A-Za-z0-9]{36}',             # GitHub PAT
+            r'gho_[A-Za-z0-9]{36}',             # GitHub OAuth
+            r'xox[bp]-[A-Za-z0-9\-]{10,}',      # Slack tokens
+            r'glpat-[A-Za-z0-9\-_]{20,}',       # GitLab PAT
+            r'npm_[A-Za-z0-9]{36,}',            # npm tokens
+            r'pypi-[A-Za-z0-9\-_]{50,}',        # PyPI tokens
+            r'AKIA[0-9A-Z]{16}',                # AWS Access Key
         ],
         "score": 60,
         "category": "secret_exposure",
@@ -58,14 +85,33 @@ PATTERNS = {
             r'curl\s+.*-X\s*POST.*(-d|--data)',
             r'curl\s+.*--data-binary\s+@',
             r'wget\s+--post-(data|file)',
+            r'(httpie|http)\s+POST',
+            r'requests\.(post|put)',
+            # Netcat with file redirect
+            r'nc\s+\S+\s+\d+\s*<',
+            r'<.*\|\s*nc\s+',
         ],
         "score": 40,
         "category": "exfiltration",
+    },
+    "indirect_execution": {
+        "patterns": [
+            r'\beval\s+',
+            r'\|\s*(sh|bash|zsh|dash)\b',
+            r'bash\s+(-c|<<<)',
+            r'sh\s+-c',
+            r'echo.*\|\s*(sh|bash)',
+            r'base64\s+-d.*\|\s*(sh|bash)',
+            r'\$\(base64\s+-d',
+        ],
+        "score": 40,
+        "category": "obfuscation",
     },
     "encoding_sensitive": {
         "patterns": [
             r'base64\s+.*\.(pem|key|env|ssh)',
             r'base64\.b64encode',
+            r'base64\s+~/?\.',  # base64 encoding dotfiles
         ],
         "score": 30,
         "category": "obfuscation",
@@ -87,6 +133,15 @@ PATTERNS = {
         ],
         "score": 60,
         "category": "persistence",
+    },
+    "env_staging": {
+        "patterns": [
+            r'export\s+\w+=.*\.ssh',
+            r'export\s+\w+=.*\.aws',
+            r'export\s+\w+=.*credentials',
+        ],
+        "score": 25,
+        "category": "staging",
     },
 }
 
@@ -146,11 +201,14 @@ class RubberBand:
     
     def check_destination(self, content: str) -> Optional[str]:
         """Extract and validate destination URLs"""
-        url_match = re.search(r'https?://([^/\s]+)', content)
+        url_match = re.search(r'https?://([^/\s:]+)', content)
         if url_match:
-            host = url_match.group(1)
+            host = url_match.group(1).lower()
             for allowed in self.allowed_destinations:
-                if allowed in host or host.endswith(allowed):
+                allowed = allowed.lower()
+                # Strict matching: exact match OR proper subdomain
+                # api.github.com.evil.com should NOT match api.github.com
+                if host == allowed or host.endswith('.' + allowed):
                     return None  # Allowed
             return host  # Suspicious destination
         return None
@@ -218,7 +276,14 @@ class RubberBand:
         """Normalize content to catch encoding bypasses"""
         normalized = content
         
-        # URL decode (handles %XX encoding)
+        # 1. Unicode NFKC normalization (converts lookalikes)
+        # Cyrillic 'с' -> 'c', fullwidth chars -> ASCII, etc.
+        normalized = unicodedata.normalize('NFKC', normalized)
+        
+        # 2. Expand $'...' shell escape sequences
+        normalized = self._expand_shell_escapes(normalized)
+        
+        # 3. URL decode (handles %XX encoding)
         # Run twice to catch double-encoding
         for _ in range(2):
             decoded = unquote(normalized)
@@ -227,6 +292,21 @@ class RubberBand:
             normalized = decoded
         
         return normalized
+    
+    def _expand_shell_escapes(self, content: str) -> str:
+        """Expand $'...' shell escape sequences"""
+        def expand_match(m):
+            s = m.group(1)
+            # Handle \xNN (hex)
+            s = re.sub(r'\\x([0-9a-fA-F]{2})', 
+                       lambda x: chr(int(x.group(1), 16)), s)
+            # Handle \NNN (octal)
+            s = re.sub(r'\\([0-7]{1,3})', 
+                       lambda x: chr(int(x.group(1), 8)), s)
+            # Handle common escapes
+            s = s.replace('\\n', '\n').replace('\\t', '\t')
+            return s
+        return re.sub(r"\$'([^']*)'", expand_match, content)
     
     def analyze(self, action: str, action_type: str = "exec", 
                 context: dict = None) -> dict:
