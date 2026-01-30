@@ -1,8 +1,8 @@
-# RFC: Command Pattern Detection for Exec Commands
+# RFC: Static Detection for Exec Commands (RubberBand)
 
 ## TL;DR
 
-I built a lightweight command pattern detection layer for the exec pipeline that catches dangerous command patterns (credential access, exfiltration, reverse shells) — as a defense against prompt injection reaching exec. Looking for feedback before submitting a PR.
+I built a lightweight static detection layer for the exec pipeline that catches dangerous commands (credential access, exfiltration, reverse shells) — as a defense against prompt injection reaching exec. Looking for feedback before submitting a PR.
 
 **Fork with implementation:** [jeffaf/openclaw](https://github.com/jeffaf/openclaw) (branch: `feat/rubberband-integration`)
 
@@ -35,7 +35,7 @@ Agent exec(command)
        │
        ▼
 ┌──────────────────────────────┐
-│  RubberBand pattern check │  ← NEW
+│  RubberBand pattern check    │  ← NEW
 │  • Normalize (Unicode, URLs) │
 │  • Pattern match             │
 │  • Context-aware scoring     │
@@ -46,7 +46,7 @@ Agent exec(command)
        └─ ALLOW → proceed
        │
        ▼
-┌──────────────────────────────┘
+┌──────────────────────────────┐
 │  runExecProcess()            │
 └──────────────────────────────┘
 ```
