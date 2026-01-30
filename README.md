@@ -1,6 +1,6 @@
 # RubberBand 🦞🔵
 
-Behavioral detection for OpenClaw/OpenClaw. Detects prompt injection by monitoring what commands *try to do*, not by analyzing input.
+Behavioral detection for OpenClaw. Detects prompt injection by monitoring what commands *try to do*, not by analyzing input.
 
 > The beast is alive and useful, but we've banded the dangerous parts so it can't pinch the operator.
 
