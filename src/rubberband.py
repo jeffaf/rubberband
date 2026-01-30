@@ -13,6 +13,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Optional, List
 from datetime import datetime
+from urllib.parse import unquote
 
 # ============ CONFIGURATION ============
 
@@ -213,6 +214,20 @@ class RubberBand:
                 return True
         return False
     
+    def normalize(self, content: str) -> str:
+        """Normalize content to catch encoding bypasses"""
+        normalized = content
+        
+        # URL decode (handles %XX encoding)
+        # Run twice to catch double-encoding
+        for _ in range(2):
+            decoded = unquote(normalized)
+            if decoded == normalized:
+                break
+            normalized = decoded
+        
+        return normalized
+    
     def analyze(self, action: str, action_type: str = "exec", 
                 context: dict = None) -> dict:
         """Main entry point - analyze an action"""
@@ -221,8 +236,11 @@ class RubberBand:
         if self.is_exempt(action):
             return {"disposition": "EXEMPT", "score": 0}
         
-        # Calculate risk
-        risk = self.calculate_risk(action, context)
+        # Normalize to catch encoding bypasses
+        normalized_action = self.normalize(action)
+        
+        # Calculate risk on normalized content
+        risk = self.calculate_risk(normalized_action, context)
         
         # Determine disposition
         if risk["score"] >= CONFIG["block_threshold"]:
