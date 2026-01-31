@@ -123,14 +123,11 @@ Tested on fork running `feat/rubberband-integration` branch:
 [rubberband] ALERT (score=70) command='cat ~/.ssh/id_rsa' rules=[ssh_key_access]
 ```
 
-### Host-Specific Behavior
+### ALERT Behavior
 
-| Host | ALERT Behavior | Rationale |
-|------|----------------|-----------|
-| **sandbox** | Warn only, command runs | Docker isolation provides safety net |
-| **gateway** | Triggers approval flow | Real filesystem, needs human confirmation |
+ALERT (score 40-79) warns but doesn't block. Human sees warning in output and can decide on future runs.
 
-This aligns with OpenClaw's defense-in-depth philosophy: sandbox isolation + pattern warnings, or gateway approval flow.
+Approval flow integration deferred - current UX (Control UI or `/approve` command) is clunky. Will revisit when inline buttons are available.
 
 **Edge case discovered:** Git commit messages containing example dangerous commands triggered detection. Context-aware preprocessing strips `-m "..."` content to avoid false positives.
 
