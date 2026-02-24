@@ -111,4 +111,4 @@ MIT
 
 Created by [@_jeffaf](https://twitter.com/_jeffaf) with help from Mai 🐱
 
-Part of the [OpenClaw](https://github.com/openclaw/openclaw) ecosystem.
+Built for [OpenClaw](https://github.com/openclaw/openclaw).
