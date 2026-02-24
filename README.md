@@ -1,114 +1,100 @@
-<p align="center">
-  <img src="assets/rubberband-logo.png" alt="RubberBand Logo" width="256">
-</p>
+# @jeffaf/openclaw-rubberband
 
-# RubberBand 🦞🔵
+**RubberBand** is a static command pattern detection engine that intercepts dangerous `exec` commands before they run. It catches credential theft, data exfiltration, reverse shells, config tampering, persistence mechanisms, and more — blocking prompt injection attacks that try to trick your agent into running malicious shell commands. Zero dependencies, pure TypeScript pattern matching.
 
-Static command pattern detection for [OpenClaw](https://github.com/openclaw/openclaw). Catches dangerous exec commands (credential access, exfiltration, reverse shells) as defense-in-depth against prompt injection.
-
-> Like the bands on lobster claws that keep them from pinching — this feature bands the dangerous parts so the agent can't pinch the operator.
-
-## 🚀 Install (Plugin)
-
-The easiest way to use RubberBand — no fork required:
+## Installation
 
 ```bash
 openclaw hooks install @jeffaf/openclaw-rubberband
 ```
 
-Then add to your OpenClaw config:
+Or install from a local path:
+
+```bash
+openclaw hooks install ./path/to/rubberband-plugin
+```
+
+## Configuration
+
+Add to your OpenClaw config:
 
 ```yaml
 plugins:
   rubberband:
     enabled: true
-    mode: enforce  # or 'shadow' for log-only
+    mode: enforce    # or shadow (log-only, safe default)
 ```
 
-Defaults to **shadow mode** (logs detections without blocking) so you can see what it catches first.
+### Modes
 
-## Status
+| Mode | Behavior |
+|------|----------|
+| `enforce` / `block` | Blocks dangerous commands (returns error to agent) |
+| `shadow` / `log` | Logs detections but allows all commands (monitoring mode) |
+| `alert` | Alerts on dangerous commands but doesn't block |
+| `off` | Disabled |
 
-**Plugin:** [`@jeffaf/openclaw-rubberband`](https://github.com/jeffaf/rubberband-plugin) — standalone hook, works with any OpenClaw install
-**PR:** [#24958](https://github.com/openclaw/openclaw/pull/24958) — native integration (pending review)
-**RFC:** [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
+**Default:** `enabled: true`, `mode: shadow` — safe for first-time users.
 
----
+### Advanced Options
+
+```yaml
+plugins:
+  rubberband:
+    enabled: true
+    mode: enforce
+    thresholds:
+      alert: 40
+      block: 60
+    allowedDestinations:
+      - localhost
+      - 127.0.0.1
+      - api.github.com
+```
 
 ## What It Detects
 
-| Category | Examples | Coverage |
-|----------|----------|----------|
-| **Credential Access** | SSH keys, AWS creds, API tokens, SAM/SYSTEM, mimikatz | ✅ |
-| **Data Exfiltration** | curl POST, wget, certutil, bitsadmin | ✅ |
-| **Reverse Shells** | nc -e, bash /dev/tcp, PowerShell, python/ruby/perl | ✅ |
-| **Persistence** | crontab, schtasks, registry Run keys, LaunchAgents | ✅ |
-| **Container Escape** | docker -v /, kubectl exec | ✅ |
-| **Indirect Execution** | eval, pipe to shell, IEX, encoded commands | ✅ |
+RubberBand includes 30+ detection rules across these categories:
 
-**Tested:** 134 bypass techniques, 98.5% detection rate, 0 false positives
+| Category | Examples |
+|----------|----------|
+| **Credential Access** | SSH keys, AWS creds, kubeconfig, keychains, PEM/key files |
+| **Secret Exposure** | API keys (OpenAI, Anthropic, GitHub, Slack, GitLab, npm) |
+| **Exfiltration** | curl POST with data, wget post, netcat piping |
+| **Indirect Execution** | eval, pipe to bash, base64 decode + execute |
+| **Obfuscation** | Base64 encoding of sensitive files, shell escape sequences |
+| **Reverse Shells** | bash /dev/tcp, netcat, socat, Python/Ruby/Perl/PHP sockets |
+| **Config Tampering** | Writes to SOUL.md, AGENTS.md, openclaw.json, clawdbot.json |
+| **Context Manipulation** | Overwrites to memory files, session injection |
+| **Self Modification** | SKILL.md tampering, .claude/ directory writes |
+| **Persistence** | Crontab, launchctl, systemctl, bashrc/zshrc injection |
+| **Reconnaissance** | whoami, /etc/passwd, env dumping, network enumeration |
+| **Data Staging** | Copying secrets to /tmp, public/www directories |
+| **Container Escape** | Docker privileged mode, host volume mounts, kubectl exec |
+| **Package Manager Abuse** | pip/npm/yarn install from git+/http URLs |
+| **Windows Attacks** | PowerShell encoded commands, LOLBins, credential dumps, WMI lateral movement |
 
-## How It Works
+### Context-Aware Analysis
 
-```
-Agent exec(command)
-       │
-       ▼
-┌──────────────────────────────┐
-│  Existing allowlist check    │
-└──────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────┐
-│  RubberBand pattern check    │
-│  • Normalize (Unicode, URLs) │
-│  • Pattern match             │
-│  • Context-aware scoring     │
-└──────────────────────────────┘
-       │
-       ├─ BLOCK → throw error
-       ├─ ALERT → log warning
-       └─ ALLOW → proceed
-       │
-       ▼
-┌──────────────────────────────┐
-│  runExecProcess()            │
-└──────────────────────────────┘
-```
+RubberBand is smart about false positives:
+- Git commit messages containing keywords like "SOUL.md" are **not** flagged
+- Heredoc bodies are stripped (data writes, not command execution)
+- Echo/printf content is recognized as output text
+- `.openclaw/workspace/` paths are excluded from config tampering rules
+- Unicode normalization and shell escape decoding catch bypass attempts
 
-## Bypass Protections
+## Stats
 
-- **Unicode normalization (NFKC)** — Catches Cyrillic lookalikes
-- **URL decoding** — Catches %7e for ~
-- **Shell escape expansion** — Catches $'\x7e'
-- **Path normalization** — Catches // and /./ obfuscation
-- **Context-aware scoring** — Stripped content + execution pattern = higher risk
+- **30+ detection rules** across 15+ categories
+- **134 bypass techniques tested** (encoding, obfuscation, path tricks)
+- **98.5% detection rate** against tested attack patterns
+- **<1ms analysis time** per command
 
-## Performance
+## Links
 
-**Detection overhead:** ~0.005ms per command
-
-Effectively invisible — typical exec takes 10-50ms for process spawning.
-
-## Documentation
-
-- [OpenClaw Integration Plan](docs/OPENCLAW-INTEGRATION.md)
-- [Security Engineering Notes](docs/SECURITY-ENGINEERING.md)
-- [Host-Specific Detections](docs/HOST-SPECIFIC-DETECTIONS.md)
-
-## Get Involved
-
-- 📦 **Plugin:** [`@jeffaf/openclaw-rubberband`](https://github.com/jeffaf/rubberband-plugin)
-- 💬 **Feedback:** [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
-- 🔧 **PR:** [#24958](https://github.com/openclaw/openclaw/pull/24958)
-- 🐛 **Issues:** Open an issue here or comment on the Discussion
+- [Discussion #4981](https://github.com/nichochar/openclaw/discussions/4981)
+- [PR #24958](https://github.com/nichochar/openclaw/pull/24958)
 
 ## License
 
 MIT
-
-## Credits
-
-Created by [@_jeffaf](https://twitter.com/_jeffaf) with help from Mai 🐱
-
-Built for [OpenClaw](https://github.com/openclaw/openclaw).

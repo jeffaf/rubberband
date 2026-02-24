@@ -1,0 +1,34 @@
+{
+  "name": "@jeffaf/openclaw-rubberband",
+  "version": "1.0.0",
+  "description": "RubberBand - static command pattern detection for OpenClaw exec pipeline",
+  "type": "module",
+  "main": "index.ts",
+  "files": [
+    "index.ts",
+    "rubberband.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "keywords": ["openclaw", "plugin", "security", "rubberband", "exec"],
+  "license": "MIT",
+  "author": "jeffaf"
+}

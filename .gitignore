@@ -1,27 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-*.egg-info/
+node_modules/
 dist/
-build/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project
-*.log
-.clawdbot/
+*.js
+*.d.ts
+*.map
+*.tgz
