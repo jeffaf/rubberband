@@ -22,7 +22,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.0.0",
+  version: "1.0.1",
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -54,13 +54,16 @@ export default {
       rbConfig.allowedDestinations = cfg.allowedDestinations as string[];
     }
 
+    // System event emitter for block/alert notifications
+    const emitEvent = api.runtime?.system?.enqueueSystemEvent;
+
     // Register the before_tool_call typed hook via api.on()
     // (api.registerHook is for internal HOOK.md events; api.on is for typed plugin hooks)
     api.on(
       "before_tool_call",
       (
         event: { toolName: string; params: Record<string, unknown> },
-        _ctx: { agentId?: string; sessionKey?: string },
+        ctx: { agentId?: string; sessionKey?: string },
       ) => {
         // Only intercept exec-like tools
         if (!EXEC_TOOL_NAMES.has(event.toolName)) return;
@@ -72,9 +75,14 @@ export default {
 
         if (result.disposition === "BLOCK") {
           const rules = result.matches.map((m) => m.rule_id).join(", ");
-          api.logger.warn(
-            `BLOCK (score=${result.score}): [${rules}] command="${command.slice(0, 120)}"`,
-          );
+          const msg = `🔴 RubberBand BLOCK (score ${result.score}/100): ${rules}\nCommand: ${command.slice(0, 200)}`;
+          api.logger.warn(msg);
+
+          // Emit system event so the block is visible in session history
+          if (emitEvent && ctx.sessionKey) {
+            try { emitEvent(msg, { sessionKey: ctx.sessionKey }); } catch {}
+          }
+
           return {
             block: true,
             blockReason: `RubberBand: blocked (score ${result.score}/100) - ${rules}`,
@@ -83,9 +91,12 @@ export default {
 
         if (result.disposition === "ALERT") {
           const rules = result.matches.map((m) => m.rule_id).join(", ");
-          api.logger.warn(
-            `ALERT (score=${result.score}): [${rules}] command="${command.slice(0, 120)}"`,
-          );
+          const msg = `⚠️ RubberBand ALERT (score ${result.score}/100): ${rules}\nCommand: ${command.slice(0, 200)}`;
+          api.logger.warn(msg);
+
+          if (emitEvent && ctx.sessionKey) {
+            try { emitEvent(msg, { sessionKey: ctx.sessionKey }); } catch {}
+          }
         }
 
         if (result.disposition === "LOG" && result.score > 0) {
