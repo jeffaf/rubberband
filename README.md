@@ -8,13 +8,30 @@ Static command pattern detection for [OpenClaw](https://github.com/openclaw/open
 
 > Like the bands on lobster claws that keep them from pinching — this feature bands the dangerous parts so the agent can't pinch the operator.
 
-## 🚀 Status
+## 🚀 Install (Plugin)
 
-**Active RFC:** [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
+The easiest way to use RubberBand — no fork required:
 
-**Implementation:** [jeffaf/openclaw](https://github.com/jeffaf/openclaw) (branch: `feat/rubberband-integration`)
+```bash
+openclaw hooks install @jeffaf/openclaw-rubberband
+```
 
-The canonical implementation is a TypeScript module for OpenClaw. This repo contains concept documentation and the original Python prototype.
+Then add to your OpenClaw config:
+
+```yaml
+plugins:
+  rubberband:
+    enabled: true
+    mode: enforce  # or 'shadow' for log-only
+```
+
+Defaults to **shadow mode** (logs detections without blocking) so you can see what it catches first.
+
+## Status
+
+**Plugin:** [`@jeffaf/openclaw-rubberband`](https://github.com/jeffaf/rubberband-plugin) — standalone hook, works with any OpenClaw install
+**PR:** [#24958](https://github.com/openclaw/openclaw/pull/24958) — native integration (pending review)
+**RFC:** [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
 
 ---
 
@@ -81,8 +98,9 @@ Effectively invisible — typical exec takes 10-50ms for process spawning.
 
 ## Get Involved
 
+- 📦 **Plugin:** [`@jeffaf/openclaw-rubberband`](https://github.com/jeffaf/rubberband-plugin)
 - 💬 **Feedback:** [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
-- 🔧 **Implementation:** [Fork branch](https://github.com/jeffaf/openclaw/tree/feat/rubberband-integration)
+- 🔧 **PR:** [#24958](https://github.com/openclaw/openclaw/pull/24958)
 - 🐛 **Issues:** Open an issue here or comment on the Discussion
 
 ## License
