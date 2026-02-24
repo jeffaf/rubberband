@@ -123,7 +123,7 @@ npx vitest run
 
 ## How It Works
 
-RubberBand is a pure TypeScript static analyzer. No network calls, no external dependencies, no LLM. It normalizes commands (handling encoding, escaping, heredocs, etc.) and matches against pattern rules with weighted scoring.
+RubberBand is a pure TypeScript static analyzer. It normalizes commands (handling encoding, escaping, heredocs, etc.) and matches against pattern rules with weighted scoring.
 
 The plugin registers a `before_tool_call` hook at priority 10. When an exec tool call comes in, it runs the command through the analyzer. If the score exceeds the block threshold, it returns `{ block: true, blockReason: "..." }` which prevents execution.
 
