@@ -5,13 +5,19 @@ Static command pattern detection plugin for [OpenClaw](https://github.com/opencl
 ## Install
 
 ```bash
-# Clone and install as a local plugin
-git clone https://github.com/jeffaf/rubberband.git ~/.openclaw/plugins/rubberband
-openclaw plugins install ~/.openclaw/plugins/rubberband
+git clone https://github.com/jeffaf/rubberband.git ~/rubberband
+openclaw plugins install ~/rubberband
 openclaw gateway restart
 ```
 
-> **Note:** npm publishing is planned ([#1](https://github.com/jeffaf/rubberband/issues/1)). Once available: `openclaw plugins install @jeffaf/openclaw-rubberband`
+Verify it loaded:
+
+```bash
+openclaw logs --lines 20 | grep -i rubberband
+# Should show: [plugins] RubberBand plugin active (mode: block)
+```
+
+> **Note:** npm publishing is planned ([#1](https://github.com/jeffaf/rubberband/issues/1)). Once available: `openclaw plugins install rubberband`
 
 ## What It Does
 
