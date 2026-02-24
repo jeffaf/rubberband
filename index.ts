@@ -5,6 +5,8 @@
  * dangerous exec commands before they execute.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { analyzeCommand } from "./rubberband.js";
 import type { RubberBandConfig } from "./rubberband.js";
 
@@ -15,6 +17,27 @@ export type { RubberBandResult, RubberBandMatch, RubberBandConfig } from "./rubb
 // Tool names that execute shell commands
 const EXEC_TOOL_NAMES = new Set(["exec", "shell", "run", "terminal", "command"]);
 
+// Audit log path
+const LOG_DIR = path.join(process.env.HOME || "~", ".openclaw", "logs");
+const LOG_FILE = path.join(LOG_DIR, "rubberband.log");
+
+function writeAuditLog(entry: {
+  disposition: string;
+  score: number;
+  rules: string[];
+  command: string;
+  sessionKey?: string;
+  agentId?: string;
+}) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n";
+    fs.appendFileSync(LOG_FILE, line);
+  } catch {
+    // Don't break exec pipeline if logging fails
+  }
+}
+
 /**
  * Plugin definition (OpenClaw plugin module format).
  */
@@ -22,7 +45,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.0.1",
+  version: "1.1.0",
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -34,7 +57,7 @@ export default {
       return;
     }
 
-    api.logger.info(`RubberBand plugin active (mode: ${mode})`);
+    api.logger.info(`RubberBand plugin active (mode: ${mode}), audit log: ${LOG_FILE}`);
 
     // Build RubberBand config from plugin config
     const rbConfig: Partial<RubberBandConfig> = {
@@ -72,11 +95,21 @@ export default {
         if (typeof command !== "string" || !command) return;
 
         const result = analyzeCommand(command, { config: rbConfig });
+        const rules = result.matches.map((m) => m.rule_id);
 
         if (result.disposition === "BLOCK") {
-          const rules = result.matches.map((m) => m.rule_id).join(", ");
-          const msg = `🔴 RubberBand BLOCK (score ${result.score}/100): ${rules}\nCommand: ${command.slice(0, 200)}`;
+          const rulesStr = rules.join(", ");
+          const msg = `🔴 RubberBand BLOCK (score ${result.score}/100): ${rulesStr}\nCommand: ${command.slice(0, 200)}`;
           api.logger.warn(msg);
+
+          writeAuditLog({
+            disposition: "BLOCK",
+            score: result.score,
+            rules,
+            command: command.slice(0, 500),
+            sessionKey: ctx.sessionKey,
+            agentId: ctx.agentId,
+          });
 
           // Emit system event so the block is visible in session history
           if (emitEvent && ctx.sessionKey) {
@@ -85,14 +118,23 @@ export default {
 
           return {
             block: true,
-            blockReason: `RubberBand: blocked (score ${result.score}/100) - ${rules}`,
+            blockReason: `RubberBand: blocked (score ${result.score}/100) - ${rulesStr}`,
           };
         }
 
         if (result.disposition === "ALERT") {
-          const rules = result.matches.map((m) => m.rule_id).join(", ");
-          const msg = `⚠️ RubberBand ALERT (score ${result.score}/100): ${rules}\nCommand: ${command.slice(0, 200)}`;
+          const rulesStr = rules.join(", ");
+          const msg = `⚠️ RubberBand ALERT (score ${result.score}/100): ${rulesStr}\nCommand: ${command.slice(0, 200)}`;
           api.logger.warn(msg);
+
+          writeAuditLog({
+            disposition: "ALERT",
+            score: result.score,
+            rules,
+            command: command.slice(0, 500),
+            sessionKey: ctx.sessionKey,
+            agentId: ctx.agentId,
+          });
 
           if (emitEvent && ctx.sessionKey) {
             try { emitEvent(msg, { sessionKey: ctx.sessionKey }); } catch {}
@@ -100,10 +142,14 @@ export default {
         }
 
         if (result.disposition === "LOG" && result.score > 0) {
-          const rules = result.matches.map((m) => m.rule_id).join(", ");
-          api.logger.info(
-            `LOG (score=${result.score}): [${rules}] command="${command.slice(0, 120)}"`,
-          );
+          writeAuditLog({
+            disposition: "LOG",
+            score: result.score,
+            rules,
+            command: command.slice(0, 500),
+            sessionKey: ctx.sessionKey,
+            agentId: ctx.agentId,
+          });
         }
 
         return;
