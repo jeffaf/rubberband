@@ -1,99 +1,94 @@
-# @jeffaf/openclaw-rubberband
+# RubberBand
 
-**RubberBand** is a static command pattern detection engine that intercepts dangerous `exec` commands before they run. It catches credential theft, data exfiltration, reverse shells, config tampering, persistence mechanisms, and more — blocking prompt injection attacks that try to trick your agent into running malicious shell commands. Zero dependencies, pure TypeScript pattern matching.
+Static command pattern detection plugin for [OpenClaw](https://github.com/openclaw/openclaw). Intercepts exec tool calls and blocks dangerous commands before they run.
 
-## Installation
-
-```bash
-openclaw hooks install @jeffaf/openclaw-rubberband
-```
-
-Or install from a local path:
+## Install
 
 ```bash
-openclaw hooks install ./path/to/rubberband-plugin
+# Clone and install as a local plugin
+git clone https://github.com/jeffaf/rubberband.git ~/.openclaw/plugins/rubberband
+openclaw plugins install ~/.openclaw/plugins/rubberband
+openclaw gateway restart
 ```
+
+## What It Does
+
+RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands based on 15+ detection categories and blocks, alerts, or logs based on configurable thresholds.
+
+## Detection Categories
+
+| Category | Examples | Score |
+|----------|----------|-------|
+| Credential Access | `cat ~/.ssh/id_rsa`, AWS keys, keychains | 60-80 |
+| Data Exfiltration | `curl -X POST` to external hosts | 40-70 |
+| Reverse Shells | `nc -e`, `bash /dev/tcp`, ngrok tunnels | 90 |
+| Config Tampering | Writes to SOUL.md, system prompts | 75 |
+| Persistence | Crontab, LaunchAgents, shell rc modifications | 60 |
+| Indirect Execution | Pipe to shell, eval, base64 decode + exec | 30-50 |
+| Reconnaissance | `whoami`, `env`, `ps aux` chains | 30 |
+
+## Thresholds
+
+| Score | Default Disposition | Behavior |
+|-------|-------------|----------|
+| 0 | ALLOW | No detection |
+| 1-39 | LOG | Silent log |
+| 40-59 | ALERT | Warn in session |
+| 60+ | BLOCK | Reject command |
 
 ## Configuration
 
-Add to your OpenClaw config:
+In `openclaw.json`:
 
-```yaml
-plugins:
-  rubberband:
-    enabled: true
-    mode: enforce    # or shadow (log-only, safe default)
+```json
+{
+  "plugins": {
+    "entries": {
+      "rubberband": {
+        "enabled": true,
+        "config": {
+          "mode": "block",
+          "thresholds": {
+            "alert": 40,
+            "block": 60
+          },
+          "allowedDestinations": ["github.com", "api.openai.com"]
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Modes
 
-| Mode | Behavior |
-|------|----------|
-| `enforce` / `block` | Blocks dangerous commands (returns error to agent) |
-| `shadow` / `log` | Logs detections but allows all commands (monitoring mode) |
-| `alert` | Alerts on dangerous commands but doesn't block |
-| `off` | Disabled |
+- **block** (default) - Block commands above block threshold, alert above alert threshold
+- **alert** - Never block, only alert
+- **log** - Silent logging only
+- **shadow** - Like log, for testing without any user-visible output
+- **off** - Disabled
 
-**Default:** `enabled: true`, `mode: shadow` — safe for first-time users.
+## Tests
 
-### Advanced Options
-
-```yaml
-plugins:
-  rubberband:
-    enabled: true
-    mode: enforce
-    thresholds:
-      alert: 40
-      block: 60
-    allowedDestinations:
-      - localhost
-      - 127.0.0.1
-      - api.github.com
+```bash
+cd ~/.openclaw/plugins/rubberband
+npm install
+npx vitest run
 ```
 
-## What It Detects
+26 tests covering all detection categories, edge cases, and mode handling.
 
-RubberBand includes 30+ detection rules across these categories:
+## How It Works
 
-| Category | Examples |
-|----------|----------|
-| **Credential Access** | SSH keys, AWS creds, kubeconfig, keychains, PEM/key files |
-| **Secret Exposure** | API keys (OpenAI, Anthropic, GitHub, Slack, GitLab, npm) |
-| **Exfiltration** | curl POST with data, wget post, netcat piping |
-| **Indirect Execution** | eval, pipe to bash, base64 decode + execute |
-| **Obfuscation** | Base64 encoding of sensitive files, shell escape sequences |
-| **Reverse Shells** | bash /dev/tcp, netcat, socat, Python/Ruby/Perl/PHP sockets |
-| **Config Tampering** | Writes to SOUL.md, AGENTS.md, openclaw.json, clawdbot.json |
-| **Context Manipulation** | Overwrites to memory files, session injection |
-| **Self Modification** | SKILL.md tampering, .claude/ directory writes |
-| **Persistence** | Crontab, launchctl, systemctl, bashrc/zshrc injection |
-| **Reconnaissance** | whoami, /etc/passwd, env dumping, network enumeration |
-| **Data Staging** | Copying secrets to /tmp, public/www directories |
-| **Container Escape** | Docker privileged mode, host volume mounts, kubectl exec |
-| **Package Manager Abuse** | pip/npm/yarn install from git+/http URLs |
-| **Windows Attacks** | PowerShell encoded commands, LOLBins, credential dumps, WMI lateral movement |
+RubberBand is a pure TypeScript static analyzer. No network calls, no external dependencies, no LLM. It normalizes commands (handling encoding, escaping, heredocs, etc.) and matches against pattern rules with weighted scoring.
 
-### Context-Aware Analysis
+The plugin registers a `before_tool_call` hook at high priority. When an exec tool call comes in, it runs the command through the analyzer. If the score exceeds the block threshold, it returns `{ block: true, blockReason: "..." }` which prevents execution.
 
-RubberBand is smart about false positives:
-- Git commit messages containing keywords like "SOUL.md" are **not** flagged
-- Heredoc bodies are stripped (data writes, not command execution)
-- Echo/printf content is recognized as output text
-- `.openclaw/workspace/` paths are excluded from config tampering rules
-- Unicode normalization and shell escape decoding catch bypass attempts
+## Also Available As
 
-## Stats
+RubberBand is also proposed as a native OpenClaw feature: [PR #24958](https://github.com/openclaw/openclaw/pull/24958)
 
-- **30+ detection rules** across 15+ categories
-- **134 bypass techniques tested** (encoding, obfuscation, path tricks)
-- **98.5% detection rate** against tested attack patterns
-- **<1ms analysis time** per command
-
-## Links
-
-- [Discussion #4981](https://github.com/nichochar/openclaw/discussions/4981)
-- [PR #24958](https://github.com/nichochar/openclaw/pull/24958)
+The plugin version lets you use it today without waiting for the PR to merge.
 
 ## License
 
