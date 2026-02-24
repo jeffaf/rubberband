@@ -11,14 +11,7 @@ openclaw plugins install ~/.openclaw/plugins/rubberband
 openclaw gateway restart
 ```
 
-Or install directly from GitHub (no clone needed):
-
-```bash
-openclaw plugins install github:jeffaf/rubberband
-openclaw gateway restart
-```
-
-> **Note:** npm publishing is planned ([#1](https://github.com/jeffaf/rubberband/issues/1)) but not yet available.
+> **Note:** npm publishing is planned ([#1](https://github.com/jeffaf/rubberband/issues/1)). Once available: `openclaw plugins install @jeffaf/openclaw-rubberband`
 
 ## What It Does
 
