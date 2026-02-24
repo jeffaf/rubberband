@@ -14,7 +14,7 @@ openclaw gateway restart
 Verify it loaded:
 
 ```bash
-openclaw logs --lines 20 | grep -i rubberband
+openclaw logs --limit 20 | grep -i rubberband
 # Should show: [plugins] RubberBand plugin active (mode: block)
 ```
 
@@ -30,7 +30,7 @@ openclaw gateway restart
 
 ```bash
 # npm
-openclaw plugins update @jeffaf/rubberband
+openclaw plugins update rubberband
 
 # git
 cd ~/.openclaw/extensions/rubberband && git pull
@@ -39,7 +39,7 @@ openclaw gateway restart
 
 ## What It Does
 
-RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands based on 15+ detection categories and blocks, alerts, or logs based on configurable thresholds.
+RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands based on 18 detection categories and blocks, alerts, or logs based on configurable thresholds.
 
 When a command is blocked:
 - The agent receives the block reason (visible in chat)
@@ -133,7 +133,7 @@ The plugin registers a `before_tool_call` hook at priority 10. When an exec tool
 
 RubberBand is also proposed as a native OpenClaw feature: [PR #24958](https://github.com/openclaw/openclaw/pull/24958) | [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
 
-The plugin version lets you use it today without waiting for the PR to merge.
+The plugin works today without waiting for the PR to merge.
 
 ## License
 
