@@ -54,8 +54,9 @@ export default {
       rbConfig.allowedDestinations = cfg.allowedDestinations as string[];
     }
 
-    // Register the before_tool_call hook
-    api.registerHook(
+    // Register the before_tool_call typed hook via api.on()
+    // (api.registerHook is for internal HOOK.md events; api.on is for typed plugin hooks)
+    api.on(
       "before_tool_call",
       (
         event: { toolName: string; params: Record<string, unknown> },

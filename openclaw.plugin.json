@@ -1,0 +1,45 @@
+{
+  "id": "rubberband",
+  "name": "RubberBand",
+  "description": "Static command pattern detection for exec pipeline security",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable or disable RubberBand"
+      },
+      "mode": {
+        "type": "string",
+        "enum": ["block", "alert", "log", "shadow", "off"],
+        "default": "block",
+        "description": "Enforcement mode"
+      },
+      "thresholds": {
+        "type": "object",
+        "properties": {
+          "alert": {
+            "type": "number",
+            "default": 40,
+            "description": "Score threshold to trigger an alert"
+          },
+          "block": {
+            "type": "number",
+            "default": 60,
+            "description": "Score threshold to block execution"
+          }
+        },
+        "additionalProperties": false
+      },
+      "allowedDestinations": {
+        "type": "array",
+        "items": { "type": "string" },
+        "default": [],
+        "description": "Hostnames allowed for network commands (e.g. github.com)"
+      }
+    },
+    "additionalProperties": false
+  }
+}
