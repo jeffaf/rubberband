@@ -2,7 +2,7 @@
   "id": "rubberband",
   "name": "RubberBand",
   "description": "Static command pattern detection for exec pipeline security",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "configSchema": {
     "type": "object",
     "properties": {

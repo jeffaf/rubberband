@@ -45,7 +45,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.1.0",
+  version: "1.2.0",
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -96,6 +96,7 @@ export default {
 
         const result = analyzeCommand(command, { config: rbConfig });
         const rules = result.matches.map((m) => m.rule_id);
+        const categories = [...new Set(result.matches.map((m) => m.category))].join(", ");
 
         if (result.disposition === "BLOCK") {
           const rulesStr = rules.join(", ");
@@ -136,9 +137,15 @@ export default {
             agentId: ctx.agentId,
           });
 
-          if (emitEvent && ctx.sessionKey) {
-            try { emitEvent(msg, { sessionKey: ctx.sessionKey }); } catch {}
-          }
+          return {
+            requireApproval: {
+              title: "⚠️ RubberBand Security Alert",
+              description: `Suspicious command detected (score ${result.score}/100): ${rulesStr}\n\nCommand: ${command.slice(0, 200)}\n\nCategories: ${categories}`,
+              severity: result.score >= 50 ? "warning" : "info",
+              timeoutMs: 120000,
+              timeoutBehavior: "deny",
+            },
+          };
         }
 
         if (result.disposition === "LOG" && result.score > 0) {

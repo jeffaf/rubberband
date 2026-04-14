@@ -1,6 +1,6 @@
 {
   "name": "@jeffaf/rubberband",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "RubberBand - static command pattern detection for OpenClaw exec pipeline",
   "type": "module",
   "main": "index.ts",
@@ -28,7 +28,15 @@
   "openclaw": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.28",
+      "minGatewayVersion": "2026.3.28"
+    },
+    "build": {
+      "openclawVersion": "2026.3.28",
+      "pluginSdkVersion": "2026.3.28"
+    }
   },
   "keywords": [
     "openclaw",
