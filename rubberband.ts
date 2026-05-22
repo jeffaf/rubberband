@@ -824,6 +824,16 @@ export function analyzeCommand(
   };
 }
 
+// ============ METADATA HELPERS ============
+
+export function getCategories(): string[] {
+  return [...new Set(Object.values(PATTERNS).map((rule) => rule.category))].sort();
+}
+
+export function getRuleCount(): number {
+  return Object.keys(PATTERNS).length;
+}
+
 // ============ EXEC INTEGRATION HELPER ============
 
 export type RubberBandCheckContext = {

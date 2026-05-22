@@ -14,8 +14,17 @@ import type { RubberBandConfig } from "./rubberband.js";
 export { analyzeCommand, getCategories, getRuleCount } from "./rubberband.js";
 export type { RubberBandResult, RubberBandMatch, RubberBandConfig } from "./rubberband.js";
 
-// Tool names that execute shell commands
-const EXEC_TOOL_NAMES = new Set(["exec", "shell", "run", "terminal", "command"]);
+// Tool names that execute shell commands. OpenClaw normalizes "bash" to "exec",
+// while some hosted runtimes expose namespaced wrappers like functions.exec_command.
+const EXEC_TOOL_NAMES = new Set([
+  "exec",
+  "exec_command",
+  "bash",
+  "shell",
+  "run",
+  "terminal",
+  "command",
+]);
 
 // Audit log path
 const LOG_DIR = path.join(process.env.HOME || "~", ".openclaw", "logs");
@@ -36,6 +45,26 @@ function writeAuditLog(entry: {
   } catch {
     // Don't break exec pipeline if logging fails
   }
+}
+
+function normalizeToolName(toolName: string): string {
+  const normalized = toolName.trim().toLowerCase();
+  const leaf = normalized.split(".").pop() ?? normalized;
+  return leaf === "bash" ? "exec" : leaf;
+}
+
+function extractCommand(params: Record<string, unknown>): string | undefined {
+  const command = params.command;
+  if (typeof command === "string" && command.trim()) {
+    return command;
+  }
+
+  const cmd = params.cmd;
+  if (typeof cmd === "string" && cmd.trim()) {
+    return cmd;
+  }
+
+  return undefined;
 }
 
 /**
@@ -89,10 +118,10 @@ export default {
         ctx: { agentId?: string; sessionKey?: string },
       ) => {
         // Only intercept exec-like tools
-        if (!EXEC_TOOL_NAMES.has(event.toolName)) return;
+        if (!EXEC_TOOL_NAMES.has(normalizeToolName(event.toolName))) return;
 
-        const command = event.params.command;
-        if (typeof command !== "string" || !command) return;
+        const command = extractCommand(event.params);
+        if (!command) return;
 
         const result = analyzeCommand(command, { config: rbConfig });
         const rules = result.matches.map((m) => m.rule_id);
@@ -137,15 +166,7 @@ export default {
             agentId: ctx.agentId,
           });
 
-          return {
-            requireApproval: {
-              title: "⚠️ RubberBand Security Alert",
-              description: `Suspicious command detected (score ${result.score}/100): ${rulesStr}\n\nCommand: ${command.slice(0, 200)}\n\nCategories: ${categories}`,
-              severity: result.score >= 50 ? "warning" : "info",
-              timeoutMs: 120000,
-              timeoutBehavior: "deny",
-            },
-          };
+          return;
         }
 
         if (result.disposition === "LOG" && result.score > 0) {

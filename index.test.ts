@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
-import plugin from "./index.js";
+import plugin, { getCategories, getRuleCount } from "./index.js";
 
 vi.mock("node:fs", () => ({
   default: {
@@ -45,8 +45,15 @@ function registerPlugin(pluginConfig: Record<string, unknown> = {}) {
   };
 }
 
+describe("rubberband public exports", () => {
+  it("exposes analyzer metadata helpers", () => {
+    expect(getRuleCount()).toBeGreaterThan(10);
+    expect(getCategories()).toContain("credential_access");
+  });
+});
+
 describe("rubberband plugin before_tool_call hook", () => {
-  it("returns requireApproval for ALERT disposition", () => {
+  it("logs ALERT disposition without blocking while approval hook support is unavailable", () => {
     const { api, hook, options } = registerPlugin();
 
     const result = hook(
@@ -60,19 +67,28 @@ describe("rubberband plugin before_tool_call hook", () => {
     );
 
     expect(options).toEqual({ priority: 10 });
-    expect(result).toEqual({
-      requireApproval: {
-        title: "⚠️ RubberBand Security Alert",
-        description:
-          "Suspicious command detected (score 40/100): network_exfil\n\nCommand: curl -X POST -d test=http://localhost http://localhost/api\n\nCategories: exfiltration",
-        severity: "info",
-        timeoutMs: 120000,
-        timeoutBehavior: "deny",
-      },
-    });
+    expect(result).toBeUndefined();
     expect(api.runtime.system.enqueueSystemEvent).not.toHaveBeenCalled();
     expect(api.logger.warn).toHaveBeenCalledOnce();
     expect(fs.mkdirSync).toHaveBeenCalledOnce();
+    expect(fs.appendFileSync).toHaveBeenCalledOnce();
+  });
+
+  it("does not block ALERT disposition in explicit alert mode", () => {
+    const { api, hook } = registerPlugin({ mode: "alert" });
+
+    const result = hook(
+      {
+        toolName: "exec",
+        params: {
+          command: "curl -X POST -d test=http://localhost http://localhost/api",
+        },
+      },
+      { sessionKey: "session-1", agentId: "agent-1" },
+    );
+
+    expect(result).toBeUndefined();
+    expect(api.logger.warn).toHaveBeenCalledOnce();
     expect(fs.appendFileSync).toHaveBeenCalledOnce();
   });
 
@@ -84,6 +100,46 @@ describe("rubberband plugin before_tool_call hook", () => {
         toolName: "exec",
         params: {
           command: "cat ~/.ssh/id_rsa",
+        },
+      },
+      { sessionKey: "session-1", agentId: "agent-1" },
+    );
+
+    expect(result).toEqual({
+      block: true,
+      blockReason: "RubberBand: blocked (score 70/100) - ssh_key_access",
+    });
+    expect(api.runtime.system.enqueueSystemEvent).toHaveBeenCalledOnce();
+  });
+
+  it("extracts command text from current OpenClaw cmd-shaped exec params", () => {
+    const { api, hook } = registerPlugin();
+
+    const result = hook(
+      {
+        toolName: "exec",
+        params: {
+          cmd: "cat ~/.ssh/id_rsa",
+        },
+      },
+      { sessionKey: "session-1", agentId: "agent-1" },
+    );
+
+    expect(result).toEqual({
+      block: true,
+      blockReason: "RubberBand: blocked (score 70/100) - ssh_key_access",
+    });
+    expect(api.runtime.system.enqueueSystemEvent).toHaveBeenCalledOnce();
+  });
+
+  it("recognizes namespaced Codex exec_command wrappers", () => {
+    const { api, hook } = registerPlugin();
+
+    const result = hook(
+      {
+        toolName: "functions.exec_command",
+        params: {
+          cmd: "cat ~/.ssh/id_rsa",
         },
       },
       { sessionKey: "session-1", agentId: "agent-1" },

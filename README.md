@@ -1,10 +1,10 @@
 # RubberBand
 
-Static command pattern detection plugin for [OpenClaw](https://github.com/openclaw/openclaw). Intercepts exec tool calls, blocks dangerous commands before they run, and can require explicit user approval for suspicious ones.
+Static command pattern detection plugin for [OpenClaw](https://github.com/openclaw/openclaw). Intercepts exec tool calls and blocks dangerous commands before they run.
 
 Zero dependencies. No cloud calls. Pure local static analysis in <3ms per command.
 
-Requires OpenClaw `v2026.3.28+` for ALERT mode approval prompts via the `requireApproval` plugin API.
+Built against OpenClaw `v2026.5.18`. Current OpenClaw `before_tool_call` hooks support `block` and parameter mutation; older `requireApproval` hook responses are not part of the current hook result contract.
 
 ## Install
 
@@ -49,8 +49,8 @@ When a command is blocked:
 - The event is logged to `~/.openclaw/logs/rubberband.log` (JSONL)
 
 When a command triggers ALERT:
-- OpenClaw shows an approval prompt via the exec approval overlay, Telegram buttons, Discord interactions, or `/approve`
-- If approval times out after 2 minutes, the command is denied
+- The event is logged but not blocked, because current OpenClaw hook results do not expose a plugin approval prompt
+- Use thresholds to reserve hard blocking for high-confidence BLOCK findings
 - The event is logged to `~/.openclaw/logs/rubberband.log` (JSONL)
 
 ## Detection Categories
@@ -71,7 +71,7 @@ When a command triggers ALERT:
 |-------|-------------|----------|
 | 0 | ALLOW | No detection |
 | 1-39 | LOG | Logged to audit file |
-| 40-59 | ALERT | ⚠️ `requireApproval` prompt + audit log |
+| 40-59 | ALERT | ⚠️ audit log only until OpenClaw exposes plugin approval prompts |
 | 60+ | BLOCK | 🔴 Command rejected + system event + audit log |
 
 ## Audit Log
@@ -120,27 +120,29 @@ In `openclaw.json`:
 - **shadow** - Like log, for testing without any user-visible output
 - **off** - Disabled
 
-## Tests
+## Tests / Build
 
 ```bash
-npx vitest run
+npm run check
 ```
 
-28 tests covering detection categories, edge cases, mode handling, and plugin hook responses.
+This runs TypeScript typecheck, Vitest, and a production build to `dist/`.
+
+29 tests covering detection categories, edge cases, mode handling, public exports, and plugin hook responses.
 
 ## How It Works
 
 RubberBand is a pure TypeScript static analyzer. It normalizes commands (handling encoding, escaping, heredocs, etc.) and matches against pattern rules with weighted scoring.
 
-The plugin registers a `before_tool_call` hook at priority 10. When an exec tool call comes in, it runs the command through the analyzer. ALERT results return `requireApproval` so OpenClaw pauses execution and asks the user, while BLOCK results still return `{ block: true, blockReason: "..." }` for a hard stop.
+The plugin registers a `before_tool_call` hook at priority 10. When an exec-like tool call comes in, it extracts command text from either `command` or `cmd` params and runs it through the analyzer. BLOCK results return `{ block: true, blockReason: "..." }` for a hard stop. ALERT results are audit-log only until OpenClaw exposes a current approval hook result again.
 
-**Performance:** Detection runs in under 3ms per command. 134 bypass techniques tested with a 98.5% detection rate.
+**Performance:** Detection runs in under 3ms per command.
 
-## Also Available As
+## Project Status
 
-RubberBand is also proposed as a native OpenClaw feature: [PR #24958](https://github.com/openclaw/openclaw/pull/24958) | [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981)
+RubberBand started as a native OpenClaw proposal, but the core PR path is closed. The live path is this plugin/community package.
 
-The plugin works today without waiting for the PR to merge.
+Background: [Discussion #4981](https://github.com/openclaw/openclaw/discussions/4981).
 
 ## License
 

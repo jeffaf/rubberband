@@ -3,18 +3,25 @@
   "version": "1.2.0",
   "description": "RubberBand - static command pattern detection for OpenClaw exec pipeline",
   "type": "module",
-  "main": "index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
-    "index.ts",
-    "rubberband.ts",
+    "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "openclaw.plugin.json"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepack": "npm run build",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
@@ -28,6 +35,9 @@
   "openclaw": {
     "extensions": [
       "./index.ts"
+    ],
+    "runtimeExtensions": [
+      "./dist/index.js"
     ],
     "compat": {
       "pluginApi": ">=2026.3.28",
