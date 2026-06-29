@@ -50,6 +50,56 @@ describe("rubberband", () => {
     });
   });
 
+  describe("custom rules", () => {
+    it("matches custom regex rules from config", () => {
+      const result = analyzeCommand("psql postgres://prod-db.internal/app", {
+        config: {
+          customRules: [
+            {
+              id: "block_prod_db",
+              pattern: "psql.*prod",
+              score: 80,
+              category: "custom",
+              description: "Block production database access",
+            },
+          ],
+        },
+      });
+
+      expect(result.disposition).toBe("BLOCK");
+      expect(result.matches).toContainEqual(
+        expect.objectContaining({
+          rule_id: "block_prod_db",
+          category: "custom",
+          score: 80,
+        }),
+      );
+    });
+
+    it("ignores invalid custom regex rules", () => {
+      const result = analyzeCommand("psql postgres://prod-db.internal/app", {
+        config: {
+          customRules: [{ id: "bad_regex", pattern: "[", score: 80 }],
+        },
+      });
+
+      expect(result.disposition).toBe("ALLOW");
+      expect(result.matches).toHaveLength(0);
+    });
+
+    it("clamps custom rule scores", () => {
+      const result = analyzeCommand("danger-zone", {
+        config: {
+          mode: "log",
+          customRules: [{ id: "too_high", pattern: "danger-zone", score: 500 }],
+        },
+      });
+
+      expect(result.score).toBe(100);
+      expect(result.matches[0]?.score).toBe(100);
+    });
+  });
+
   describe("workspace path exclusions", () => {
     it("should NOT flag mv within .openclaw/workspace/", () => {
       const command =

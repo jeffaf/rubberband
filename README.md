@@ -1,6 +1,6 @@
 # RubberBand
 
-Static command pattern detection plugin for [OpenClaw](https://github.com/openclaw/openclaw). Intercepts exec tool calls and blocks dangerous commands before they run.
+Static command pattern detection plugin for [OpenClaw](https://github.com/openclaw/openclaw). Intercepts exec tool calls and scores risky commands before they run.
 
 Zero dependencies. No cloud calls. Pure local static analysis in <3ms per command.
 
@@ -41,7 +41,7 @@ openclaw gateway restart
 
 ## What It Does
 
-RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands based on 18 detection categories and blocks, requires approval, or logs based on configurable thresholds.
+RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands across built-in detection categories plus optional custom rules, then blocks, requires approval, or logs based on configurable thresholds.
 
 When a command is blocked:
 
@@ -98,6 +98,17 @@ cat ~/.openclaw/logs/rubberband.log | jq .
 tail -f ~/.openclaw/logs/rubberband.log | jq .
 ```
 
+### Dashboard
+
+`dashboard.html` is a local, static viewer for `rubberband.log`. Open it in a browser and select or drop `~/.openclaw/logs/rubberband.log`.
+
+It shows:
+
+- Recent blocks and alerts
+- Score distribution
+- Top triggered rules
+- Timeline by hour
+
 ## Configuration
 
 In `openclaw.json`:
@@ -114,7 +125,16 @@ In `openclaw.json`:
             "alert": 40,
             "block": 60
           },
-          "allowedDestinations": ["github.com", "api.openai.com"]
+          "allowedDestinations": ["github.com", "api.openai.com"],
+          "customRules": [
+            {
+              "id": "block_prod_db",
+              "pattern": "psql.*prod",
+              "score": 80,
+              "category": "custom",
+              "description": "Block production database access"
+            }
+          ]
         }
       }
     }
@@ -130,6 +150,18 @@ In `openclaw.json`:
 - **shadow** - Like log, for testing without any user-visible output
 - **off** - Disabled
 
+### Custom Rules
+
+Custom rules are optional JavaScript regex patterns compiled case-insensitively. Each rule needs:
+
+- `id` - identifier written to matches and audit logs
+- `pattern` - regex pattern string
+- `score` - score contribution from 0 to 100
+- `category` - optional category, defaults to `custom`
+- `description` - optional note for humans
+
+Invalid custom regexes are ignored so a bad rule does not break command execution.
+
 ## Tests / Build
 
 ```bash
@@ -138,7 +170,7 @@ npm run check
 
 This runs TypeScript typecheck, Vitest, and a production build to `dist/`.
 
-32 tests covering detection categories, edge cases, mode handling, public exports, and plugin hook responses.
+Tests cover detection categories, custom rules, edge cases, mode handling, public exports, and plugin hook responses.
 
 ## How It Works
 

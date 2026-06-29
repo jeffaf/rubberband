@@ -166,4 +166,25 @@ describe("rubberband plugin before_tool_call hook", () => {
     });
     expect(api.runtime.system.enqueueSystemEvent).toHaveBeenCalledOnce();
   });
+
+  it("passes custom rules from plugin config into analysis", () => {
+    const { hook } = registerPlugin({
+      customRules: [{ id: "prod_db", pattern: "psql.*prod", score: 80, category: "custom" }],
+    });
+
+    const result = hook(
+      {
+        toolName: "exec",
+        params: {
+          cmd: "psql postgres://prod-db.internal/app",
+        },
+      },
+      { sessionKey: "session-1", agentId: "agent-1" },
+    );
+
+    expect(result).toEqual({
+      block: true,
+      blockReason: "RubberBand: blocked (score 80/100) - prod_db",
+    });
+  });
 });

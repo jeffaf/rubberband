@@ -2,7 +2,7 @@
   "id": "rubberband",
   "name": "RubberBand",
   "description": "Static command pattern detection for exec pipeline security",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "configSchema": {
     "type": "object",
     "properties": {
@@ -38,6 +38,39 @@
         "items": { "type": "string" },
         "default": [],
         "description": "Hostnames allowed for network commands (e.g. github.com)"
+      },
+      "customRules": {
+        "type": "array",
+        "description": "Additional regex rules evaluated after built-in rules",
+        "items": {
+          "type": "object",
+          "required": ["id", "pattern", "score"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Rule identifier written to matches and audit logs"
+            },
+            "pattern": {
+              "type": "string",
+              "description": "JavaScript regex pattern, compiled case-insensitively"
+            },
+            "score": {
+              "type": "number",
+              "description": "Risk score contribution from 0 to 100"
+            },
+            "category": {
+              "type": "string",
+              "default": "custom",
+              "description": "Rule category used for score stacking"
+            },
+            "description": {
+              "type": "string",
+              "description": "Short human-readable rule note"
+            }
+          },
+          "additionalProperties": false
+        },
+        "default": []
       }
     },
     "additionalProperties": false

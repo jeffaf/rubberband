@@ -1,5 +1,5 @@
 /**
- * @jeffaf/openclaw-rubberband
+ * @jeffaf/rubberband
  *
  * OpenClaw plugin that uses RubberBand static pattern detection to block
  * dangerous exec commands before they execute.
@@ -12,7 +12,12 @@ import type { RubberBandConfig } from "./rubberband.js";
 
 // Re-export for consumers
 export { analyzeCommand, getCategories, getRuleCount } from "./rubberband.js";
-export type { RubberBandResult, RubberBandMatch, RubberBandConfig } from "./rubberband.js";
+export type {
+  RubberBandResult,
+  RubberBandMatch,
+  RubberBandConfig,
+  RubberBandCustomRule,
+} from "./rubberband.js";
 
 // Tool names that execute shell commands. OpenClaw normalizes "bash" to "exec",
 // while some hosted runtimes expose namespaced wrappers like functions.exec_command.
@@ -101,7 +106,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.3.0",
+  version: "1.4.0",
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -132,6 +137,10 @@ export default {
 
     if (Array.isArray(cfg.allowedDestinations)) {
       rbConfig.allowedDestinations = cfg.allowedDestinations as string[];
+    }
+
+    if (Array.isArray(cfg.customRules)) {
+      rbConfig.customRules = cfg.customRules as RubberBandConfig["customRules"];
     }
 
     // System event emitter for block/alert notifications

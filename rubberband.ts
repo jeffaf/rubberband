@@ -16,6 +16,7 @@ export type RubberBandMatch = {
   category: string;
   score: number;
   pattern?: string;
+  description?: string;
 };
 
 export type RubberBandResult = {
@@ -23,6 +24,14 @@ export type RubberBandResult = {
   score: number;
   matches: RubberBandMatch[];
   factors: string[];
+};
+
+export type RubberBandCustomRule = {
+  id: string;
+  pattern: string;
+  score: number;
+  category?: string;
+  description?: string;
 };
 
 export type RubberBandConfig = {
@@ -33,6 +42,7 @@ export type RubberBandConfig = {
     block: number;
   };
   allowedDestinations: string[];
+  customRules?: RubberBandCustomRule[];
   notifyChannel?: boolean;
 };
 
@@ -55,6 +65,7 @@ const DEFAULT_CONFIG: RubberBandConfig = {
     "api.anthropic.com",
     "api.openai.com",
   ],
+  customRules: [],
 };
 
 // ============ CONTEXT-AWARE PREPROCESSING ============
@@ -631,7 +642,7 @@ function expandBareEscapes(content: string): string {
 /**
  * Check content against all patterns
  */
-function checkPatterns(content: string): RubberBandMatch[] {
+function checkPatterns(content: string, customRules: RubberBandCustomRule[] = []): RubberBandMatch[] {
   const matches: RubberBandMatch[] = [];
 
   for (const [ruleId, rule] of Object.entries(PATTERNS)) {
@@ -645,6 +656,27 @@ function checkPatterns(content: string): RubberBandMatch[] {
         });
         break; // One match per rule is enough
       }
+    }
+  }
+
+  for (const rule of customRules) {
+    if (!rule.id || !rule.pattern || !Number.isFinite(rule.score)) {
+      continue;
+    }
+
+    try {
+      const pattern = new RegExp(rule.pattern, "i");
+      if (pattern.test(content)) {
+        matches.push({
+          rule_id: rule.id,
+          category: rule.category || "custom",
+          score: Math.min(100, Math.max(0, rule.score)),
+          pattern: rule.pattern,
+          description: rule.description,
+        });
+      }
+    } catch {
+      continue;
     }
   }
 
@@ -685,7 +717,7 @@ function calculateRisk(
   config: RubberBandConfig,
   contentWasStripped?: boolean,
 ): { score: number; matches: RubberBandMatch[]; factors: string[] } {
-  const matches = checkPatterns(content);
+  const matches = checkPatterns(content, config.customRules);
 
   if (matches.length === 0) {
     return { score: 0, matches: [], factors: [] };

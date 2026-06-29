@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RubberBand Log Viewer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #141414;
+        --panel: #202020;
+        --panel-soft: #252525;
+        --border: #3a3a3a;
+        --text: #f2f2f2;
+        --muted: #b6b6b6;
+        --green: #62d285;
+        --yellow: #f0c15a;
+        --red: #ff6b6b;
+        --blue: #78a8ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 24px 0 40px;
+      }
+
+      header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 720;
+      }
+
+      h2 {
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .drop-zone {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        margin-bottom: 16px;
+      }
+
+      .drop-zone.dragover {
+        border-color: var(--blue);
+        background: #222a36;
+      }
+
+      input[type="file"] {
+        width: 100%;
+        max-width: 420px;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .stat,
+      section {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .stat {
+        padding: 14px;
+      }
+
+      .stat .value {
+        font-size: 24px;
+        font-weight: 760;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      section {
+        overflow: hidden;
+      }
+
+      section header {
+        margin: 0;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel-soft);
+      }
+
+      .content {
+        padding: 14px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 9px 8px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      code {
+        display: block;
+        max-width: 560px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #e7e7e7;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 58px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        color: #111;
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .allow,
+      .log {
+        background: var(--green);
+      }
+
+      .alert {
+        background: var(--yellow);
+      }
+
+      .block {
+        background: var(--red);
+      }
+
+      .bar-row {
+        display: grid;
+        grid-template-columns: 110px 1fr 44px;
+        gap: 10px;
+        align-items: center;
+        margin: 10px 0;
+      }
+
+      .bar {
+        height: 10px;
+        border-radius: 999px;
+        background: #343434;
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        background: var(--blue);
+      }
+
+      .timeline {
+        min-height: 120px;
+        display: flex;
+        align-items: end;
+        gap: 3px;
+        border-left: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 8px 0;
+      }
+
+      .tick {
+        flex: 1;
+        min-width: 4px;
+        background: var(--blue);
+        border-radius: 3px 3px 0 0;
+      }
+
+      .empty {
+        padding: 30px 14px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (max-width: 760px) {
+        header,
+        .grid {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+
+        .summary {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        code {
+          max-width: 260px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>RubberBand Log Viewer</h1>
+          <div class="muted">Open ~/.openclaw/logs/rubberband.log or drop it here.</div>
+        </div>
+        <div id="loaded" class="muted">No log loaded</div>
+      </header>
+
+      <label class="drop-zone" id="dropZone">
+        <strong>Choose rubberband.log</strong>
+        <input id="fileInput" type="file" accept=".log,.jsonl,.txt,application/json" />
+      </label>
+
+      <div class="summary">
+        <div class="stat">
+          <div class="muted">Events</div>
+          <div class="value" id="eventCount">0</div>
+        </div>
+        <div class="stat">
+          <div class="muted">Blocks</div>
+          <div class="value" id="blockCount">0</div>
+        </div>
+        <div class="stat">
+          <div class="muted">Alerts</div>
+          <div class="value" id="alertCount">0</div>
+        </div>
+        <div class="stat">
+          <div class="muted">Average Score</div>
+          <div class="value" id="avgScore">0</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <section>
+          <header><h2>Score Distribution</h2></header>
+          <div class="content" id="scoreDistribution"></div>
+        </section>
+        <section>
+          <header><h2>Top Rules</h2></header>
+          <div class="content" id="topRules"></div>
+        </section>
+      </div>
+
+      <section>
+        <header><h2>Timeline</h2></header>
+        <div class="content">
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </section>
+
+      <section style="margin-top: 16px">
+        <header><h2>Recent Events</h2></header>
+        <div id="events"></div>
+      </section>
+    </main>
+
+    <script>
+      const fileInput = document.querySelector("#fileInput");
+      const dropZone = document.querySelector("#dropZone");
+
+      const buckets = [
+        ["0-39", 0, 39],
+        ["40-59", 40, 59],
+        ["60-79", 60, 79],
+        ["80-100", 80, 100],
+      ];
+
+      function parseLog(text) {
+        return text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            try {
+              return JSON.parse(line);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean)
+          .sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")));
+      }
+
+      function dispositionClass(disposition) {
+        const value = String(disposition || "").toLowerCase();
+        if (value.includes("block")) return "block";
+        if (value.includes("alert")) return "alert";
+        if (value.includes("log")) return "log";
+        return "allow";
+      }
+
+      function renderBars(target, rows, total) {
+        target.innerHTML = rows
+          .map(([label, count]) => {
+            const width = total ? Math.round((count / total) * 100) : 0;
+            return `<div class="bar-row"><span>${label}</span><div class="bar"><span style="width:${width}%"></span></div><span>${count}</span></div>`;
+          })
+          .join("");
+      }
+
+      function renderTimeline(events) {
+        const target = document.querySelector("#timeline");
+        if (!events.length) {
+          target.innerHTML = '<div class="empty">No events</div>';
+          return;
+        }
+
+        const byHour = new Map();
+        for (const event of events) {
+          const date = new Date(event.ts);
+          if (Number.isNaN(date.getTime())) continue;
+          const key = date.toISOString().slice(0, 13);
+          byHour.set(key, (byHour.get(key) || 0) + 1);
+        }
+
+        const values = [...byHour.values()];
+        const max = Math.max(...values, 1);
+        target.innerHTML = [...byHour.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([hour, count]) => {
+            const height = Math.max(4, Math.round((count / max) * 110));
+            return `<div class="tick" title="${hour}: ${count}" style="height:${height}px"></div>`;
+          })
+          .join("");
+      }
+
+      function renderEvents(events) {
+        const target = document.querySelector("#events");
+        if (!events.length) {
+          target.innerHTML = '<div class="empty">No parseable JSONL events found.</div>';
+          return;
+        }
+
+        target.innerHTML = `<table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Disposition</th>
+              <th>Score</th>
+              <th>Rules</th>
+              <th>Command</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${events
+              .slice(0, 100)
+              .map((event) => {
+                const rules = Array.isArray(event.rules) ? event.rules.join(", ") : "";
+                const cls = dispositionClass(event.disposition);
+                return `<tr>
+                  <td>${event.ts || ""}</td>
+                  <td><span class="pill ${cls}">${event.disposition || ""}</span></td>
+                  <td>${event.score ?? ""}</td>
+                  <td>${rules}</td>
+                  <td><code title="${event.command || ""}">${event.command || ""}</code></td>
+                </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>`;
+      }
+
+      function render(events, fileName) {
+        const total = events.length;
+        const blocks = events.filter((e) => dispositionClass(e.disposition) === "block").length;
+        const alerts = events.filter((e) => dispositionClass(e.disposition) === "alert").length;
+        const avg = total
+          ? Math.round(events.reduce((sum, event) => sum + Number(event.score || 0), 0) / total)
+          : 0;
+
+        document.querySelector("#loaded").textContent = fileName ? `Loaded ${fileName}` : "No log loaded";
+        document.querySelector("#eventCount").textContent = total;
+        document.querySelector("#blockCount").textContent = blocks;
+        document.querySelector("#alertCount").textContent = alerts;
+        document.querySelector("#avgScore").textContent = avg;
+
+        renderBars(
+          document.querySelector("#scoreDistribution"),
+          buckets.map(([label, min, max]) => [
+            label,
+            events.filter((event) => Number(event.score || 0) >= min && Number(event.score || 0) <= max)
+              .length,
+          ]),
+          total,
+        );
+
+        const ruleCounts = new Map();
+        for (const event of events) {
+          for (const rule of Array.isArray(event.rules) ? event.rules : []) {
+            ruleCounts.set(rule, (ruleCounts.get(rule) || 0) + 1);
+          }
+        }
+        renderBars(
+          document.querySelector("#topRules"),
+          [...ruleCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8),
+          Math.max(...ruleCounts.values(), 0),
+        );
+
+        renderTimeline(events);
+        renderEvents(events);
+      }
+
+      async function loadFile(file) {
+        if (!file) return;
+        const text = await file.text();
+        render(parseLog(text), file.name);
+      }
+
+      fileInput.addEventListener("change", () => loadFile(fileInput.files[0]));
+      dropZone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+      dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dropZone.classList.remove("dragover");
+        loadFile(event.dataTransfer.files[0]);
+      });
+
+      render([], "");
+    </script>
+  </body>
+</html>
