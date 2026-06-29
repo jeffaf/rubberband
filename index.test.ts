@@ -26,6 +26,7 @@ function registerPlugin(pluginConfig: Record<string, unknown> = {}) {
       },
     },
     on: vi.fn(),
+    resolvePath: (input: string) => input.replace(/^~/, "/tmp/home"),
   };
 
   plugin.register(api);
@@ -53,7 +54,7 @@ describe("rubberband public exports", () => {
 });
 
 describe("rubberband plugin before_tool_call hook", () => {
-  it("logs ALERT disposition without blocking while approval hook support is unavailable", () => {
+  it("requests approval for ALERT disposition", () => {
     const { api, hook, options } = registerPlugin();
 
     const result = hook(
@@ -67,14 +68,22 @@ describe("rubberband plugin before_tool_call hook", () => {
     );
 
     expect(options).toEqual({ priority: 10 });
-    expect(result).toBeUndefined();
+    expect(result).toMatchObject({
+      requireApproval: {
+        title: "RubberBand ALERT: exfiltration",
+        severity: "warning",
+        timeoutMs: 60_000,
+        timeoutBehavior: "deny",
+        allowedDecisions: ["allow-once", "deny"],
+      },
+    });
     expect(api.runtime.system.enqueueSystemEvent).not.toHaveBeenCalled();
     expect(api.logger.warn).toHaveBeenCalledOnce();
     expect(fs.mkdirSync).toHaveBeenCalledOnce();
     expect(fs.appendFileSync).toHaveBeenCalledOnce();
   });
 
-  it("does not block ALERT disposition in explicit alert mode", () => {
+  it("records approval resolution for ALERT disposition", async () => {
     const { api, hook } = registerPlugin({ mode: "alert" });
 
     const result = hook(
@@ -85,11 +94,17 @@ describe("rubberband plugin before_tool_call hook", () => {
         },
       },
       { sessionKey: "session-1", agentId: "agent-1" },
-    );
+    ) as {
+      requireApproval?: {
+        onResolution?: (decision: string) => Promise<void> | void;
+      };
+    };
 
-    expect(result).toBeUndefined();
+    expect(result?.requireApproval).toBeTruthy();
     expect(api.logger.warn).toHaveBeenCalledOnce();
     expect(fs.appendFileSync).toHaveBeenCalledOnce();
+    await result.requireApproval?.onResolution?.("deny");
+    expect(fs.appendFileSync).toHaveBeenCalledTimes(2);
   });
 
   it("keeps hard blocking for BLOCK disposition", () => {

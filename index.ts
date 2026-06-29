@@ -26,25 +26,52 @@ const EXEC_TOOL_NAMES = new Set([
   "command",
 ]);
 
-// Audit log path
-const LOG_DIR = path.join(process.env.HOME || "~", ".openclaw", "logs");
-const LOG_FILE = path.join(LOG_DIR, "rubberband.log");
+function resolveLogFile(api: { resolvePath?: (input: string) => string }): string {
+  try {
+    if (api.resolvePath) {
+      return path.join(api.resolvePath("~/.openclaw/logs"), "rubberband.log");
+    }
+  } catch {
+    // fall through to HOME-based path
+  }
+  return path.join(process.env.HOME || "~", ".openclaw", "logs", "rubberband.log");
+}
 
-function writeAuditLog(entry: {
+function writeAuditLog(
+  logFile: string,
+  entry: {
+    disposition: string;
+    score: number;
+    rules: string[];
+    command: string;
+    sessionKey?: string;
+    agentId?: string;
+  },
+) {
+  try {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n";
+    fs.appendFileSync(logFile, line);
+  } catch {
+    // Don't break exec pipeline if logging fails
+  }
+}
+
+function buildApprovalDescription(params: {
   disposition: string;
   score: number;
   rules: string[];
   command: string;
-  sessionKey?: string;
-  agentId?: string;
-}) {
-  try {
-    fs.mkdirSync(LOG_DIR, { recursive: true });
-    const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n";
-    fs.appendFileSync(LOG_FILE, line);
-  } catch {
-    // Don't break exec pipeline if logging fails
-  }
+  categories: string;
+}): string {
+  const categories = params.categories || "unknown";
+  const rules = params.rules.length > 0 ? params.rules.join(", ") : "none";
+  return [
+    `RubberBand classified this exec command as ${params.disposition} with score ${params.score}/100.`,
+    `Categories: ${categories}.`,
+    `Rules: ${rules}.`,
+    `Command: ${params.command.slice(0, 500)}`,
+  ].join("\n");
 }
 
 function normalizeToolName(toolName: string): string {
@@ -74,7 +101,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.2.0",
+  version: "1.3.0",
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -86,7 +113,8 @@ export default {
       return;
     }
 
-    api.logger.info(`RubberBand plugin active (mode: ${mode}), audit log: ${LOG_FILE}`);
+    const logFile = resolveLogFile(api);
+    api.logger.info(`RubberBand plugin active (mode: ${mode}), audit log: ${logFile}`);
 
     // Build RubberBand config from plugin config
     const rbConfig: Partial<RubberBandConfig> = {
@@ -132,7 +160,7 @@ export default {
           const msg = `🔴 RubberBand BLOCK (score ${result.score}/100): ${rulesStr}\nCommand: ${command.slice(0, 200)}`;
           api.logger.warn(msg);
 
-          writeAuditLog({
+          writeAuditLog(logFile, {
             disposition: "BLOCK",
             score: result.score,
             rules,
@@ -143,7 +171,9 @@ export default {
 
           // Emit system event so the block is visible in session history
           if (emitEvent && ctx.sessionKey) {
-            try { emitEvent(msg, { sessionKey: ctx.sessionKey }); } catch {}
+            try {
+              emitEvent(msg, { sessionKey: ctx.sessionKey });
+            } catch {}
           }
 
           return {
@@ -157,7 +187,7 @@ export default {
           const msg = `⚠️ RubberBand ALERT (score ${result.score}/100): ${rulesStr}\nCommand: ${command.slice(0, 200)}`;
           api.logger.warn(msg);
 
-          writeAuditLog({
+          writeAuditLog(logFile, {
             disposition: "ALERT",
             score: result.score,
             rules,
@@ -166,11 +196,36 @@ export default {
             agentId: ctx.agentId,
           });
 
-          return;
+          return {
+            requireApproval: {
+              title: `RubberBand ALERT: ${categories || rulesStr || "exec command"}`,
+              description: buildApprovalDescription({
+                disposition: "ALERT",
+                score: result.score,
+                rules,
+                command,
+                categories,
+              }),
+              severity: "warning",
+              timeoutMs: 60_000,
+              timeoutBehavior: "deny",
+              allowedDecisions: ["allow-once", "deny"],
+              onResolution: async (decision: string) => {
+                writeAuditLog(logFile, {
+                  disposition: `ALERT_${decision.toUpperCase()}`,
+                  score: result.score,
+                  rules,
+                  command: command.slice(0, 500),
+                  sessionKey: ctx.sessionKey,
+                  agentId: ctx.agentId,
+                });
+              },
+            },
+          };
         }
 
         if (result.disposition === "LOG" && result.score > 0) {
-          writeAuditLog({
+          writeAuditLog(logFile, {
             disposition: "LOG",
             score: result.score,
             rules,
