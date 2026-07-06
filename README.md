@@ -109,6 +109,16 @@ It shows:
 - Top triggered rules
 - Timeline by hour
 
+## Commands
+
+RubberBand registers a `/rubberband` slash command that runs without invoking the
+agent. This is also the explicit surface that keeps the plugin off OpenClaw's
+hook-only compatibility path.
+
+- `/rubberband` — show status: enforcement mode, thresholds, rule and custom-rule
+  counts, allowed destinations, audit log path, and a summary of recent findings.
+- `/rubberband log [N]` — show the last `N` audit findings (default 10, max 100).
+
 ## Configuration
 
 In `openclaw.json`:

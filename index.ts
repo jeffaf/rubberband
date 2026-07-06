@@ -7,8 +7,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { analyzeCommand } from "./rubberband.js";
+import { analyzeCommand, getCategories, getRuleCount } from "./rubberband.js";
 import type { RubberBandConfig } from "./rubberband.js";
+
+const RUBBERBAND_VERSION = "1.5.0";
 
 // Re-export for consumers
 export { analyzeCommand, getCategories, getRuleCount } from "./rubberband.js";
@@ -99,6 +101,73 @@ function extractCommand(params: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/** Read and parse the last `limit` JSONL entries from the audit log. Never throws. */
+function readRecentAuditEntries(
+  logFile: string,
+  limit: number,
+): Array<Record<string, unknown>> {
+  try {
+    if (!fs.existsSync(logFile)) return [];
+    const lines = fs.readFileSync(logFile, "utf8").split("\n").filter((l) => l.trim());
+    const entries: Array<Record<string, unknown>> = [];
+    for (const line of lines.slice(-limit)) {
+      try {
+        entries.push(JSON.parse(line) as Record<string, unknown>);
+      } catch {
+        // Skip a malformed line rather than failing the whole command.
+      }
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
+function buildStatusText(params: {
+  enabled: boolean;
+  mode: string;
+  thresholds: { alert: number; block: number };
+  customRuleCount: number;
+  allowedDestinations: string[];
+  logFile: string;
+  recent: Array<Record<string, unknown>>;
+}): string {
+  const dispoCounts: Record<string, number> = {};
+  for (const e of params.recent) {
+    const d = typeof e.disposition === "string" ? e.disposition : "?";
+    dispoCounts[d] = (dispoCounts[d] ?? 0) + 1;
+  }
+  const recentSummary = Object.keys(dispoCounts).length
+    ? Object.entries(dispoCounts).map(([d, n]) => `${d}: ${n}`).join(", ")
+    : "none logged yet";
+
+  return [
+    `RubberBand v${RUBBERBAND_VERSION} — ${params.enabled ? "enabled" : "disabled"}`,
+    `Mode: ${params.mode}`,
+    `Thresholds: alert ${params.thresholds.alert}, block ${params.thresholds.block}`,
+    `Rules: ${getRuleCount()} built-in across ${getCategories().length} categories`,
+    `Custom rules: ${params.customRuleCount}`,
+    `Allowed destinations: ${params.allowedDestinations.length ? params.allowedDestinations.join(", ") : "(none)"}`,
+    `Audit log: ${params.logFile}`,
+    `Recent (${params.recent.length} entries): ${recentSummary}`,
+    "",
+    "Use `/rubberband log [N]` for the last N findings (default 10).",
+  ].join("\n");
+}
+
+function buildLogText(logFile: string, entries: Array<Record<string, unknown>>): string {
+  if (!entries.length) return `RubberBand: no audit findings in ${logFile}`;
+  const rows = entries.map((e) => {
+    const ts = typeof e.ts === "string" ? e.ts : "?";
+    const disposition = typeof e.disposition === "string" ? e.disposition : "?";
+    const score = typeof e.score === "number" ? e.score : "?";
+    const rules = Array.isArray(e.rules) ? (e.rules as unknown[]).join(",") : "";
+    const command = typeof e.command === "string" ? e.command.slice(0, 120) : "";
+    return `${ts} [${disposition} ${score}] ${rules} :: ${command}`;
+  });
+  return [`RubberBand recent findings (${entries.length}):`, ...rows].join("\n");
+}
+
 /**
  * Plugin definition (OpenClaw plugin module format).
  */
@@ -106,7 +175,7 @@ export default {
   id: "rubberband",
   name: "RubberBand",
   description: "Static command pattern detection for exec pipeline security",
-  version: "1.4.0",
+  version: RUBBERBAND_VERSION,
 
   register(api: any): void {
     const cfg = api.pluginConfig ?? {};
@@ -248,5 +317,41 @@ export default {
       },
       { priority: 10 },
     );
+
+    // Explicit command surface (moves the plugin off the hook-only compatibility
+    // path). Runs without invoking the LLM agent - status/log inspection only.
+    if (typeof api.registerCommand === "function") {
+      const thresholds = rbConfig.thresholds ?? { alert: 40, block: 60 };
+      const customRuleCount = Array.isArray(cfg.customRules) ? cfg.customRules.length : 0;
+      const allowedDestinations = Array.isArray(cfg.allowedDestinations)
+        ? (cfg.allowedDestinations as string[])
+        : [];
+
+      api.registerCommand({
+        name: "rubberband",
+        description: "Show RubberBand status and recent exec security findings",
+        acceptsArgs: true,
+        handler: (ctx: { args?: string }) => {
+          const arg = (ctx?.args ?? "").trim();
+          if (arg.toLowerCase().startsWith("log")) {
+            const requested = parseInt(arg.split(/\s+/)[1] ?? "", 10);
+            const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 100) : 10;
+            return { text: buildLogText(logFile, readRecentAuditEntries(logFile, limit)) };
+          }
+          return {
+            text: buildStatusText({
+              enabled,
+              mode: rbConfig.mode ?? mode,
+              thresholds,
+              customRuleCount,
+              allowedDestinations,
+              logFile,
+              recent: readRecentAuditEntries(logFile, 20),
+            }),
+          };
+        },
+      });
+      api.logger.info("RubberBand /rubberband command registered");
+    }
   },
 };
